@@ -1,0 +1,23 @@
+name: capstone2
+channels:
+    - conda-forge
+    - default
+    - anaconda
+    - derickl
+dependencies:
+    - numpy
+    - jupyter
+    - jupyterlab
+    - keras
+    - matplotlib
+    - numpy
+    - pip>=9.0.0
+    - pandas
+    - python>=3.7
+    - pygraphviz
+    - scikit-learn
+    - scipy
+    - seaborn
+    - tensorflow>=1.0.0
+    - pip:
+        - virtualenvwrapper
