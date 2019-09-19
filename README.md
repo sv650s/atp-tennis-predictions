@@ -2,6 +2,10 @@
 
 For this project, I will be using various datasets from ATP tennis to see if we can accurately predict results for professional tennis tournaments
 
+I looked at a number of tennis datasets and recently found this one: https://github.com/JeffSackmann/tennis_atp
+
+The data is generally pretty clean and more current than any of the datasets that I found on Kaggle.
+
 # Requirements
 
 * Python 3.7
