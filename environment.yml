@@ -18,6 +18,9 @@ dependencies:
     - scikit-learn
     - scipy
     - seaborn
+    - shap
     - tensorflow>=1.0.0
     - pip:
+        - eli5
+        - skater
         - virtualenvwrapper
