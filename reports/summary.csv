@@ -1,0 +1,13 @@
+model,start_year,dataset,accuracy,model_file
+LR,1998,diff,0.685698486209995,
+KNN,1998,diff,0.609179511992811,knn-1998-2019-diff.pkl
+RF,1998,diff,0.850349070297919,rf-1998-2019-diff.pkl
+LR,1998,diff+ohe,0.669522396114409,
+KNN,1998,diff+ohe,0.842147868321641,knn-1998-2019-diff-ohe.pkl
+RF,1998,diff+ohe,0.794522396114409,rf-1998-2019-diff-ohe.pkl
+LR,1998,diff+history,0.692053426875337,lr-1998-2019-diff-matchup5.pkl
+KNN,1998,diff+history,0.610766324878575,knn-1998-2019-diff-matchup5.pkl
+RF,1998,diff+history,0.845588235294118,rf-1998-2019-diff-matchup5.pkl
+LR,1998,diff+ohe+history,0.696438208310847,lr-1998-2019-diff-ohe-matchup5.pkl
+KNN,1998,diff+ohe+history,0.842215326497572,knn-1998-2019-diff-ohe-matchup5.pkl
+RF,1998,diff+ohe+history,0.759309228278467,rf-1998-2019-diff-ohe-matchup5.pkl
