@@ -2,3 +2,4 @@ datasets/
 .ipynb_checkpoints/
 .DS_Store
 .idea/
+/__pycache__
