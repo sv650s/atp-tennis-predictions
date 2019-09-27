@@ -52,6 +52,7 @@ def get_data(filename: str, label_col: str, start_year: int, random_state = 1) -
     features = features[features.tourney_year >= start_year]
     labels = features[label_col].copy()
     features = features.drop([label_col], axis=1)
+    print(features.shape)
     return train_test_split(features, labels, random_state=random_state)
 
 
