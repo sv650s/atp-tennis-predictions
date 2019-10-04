@@ -5,6 +5,8 @@ import pickle
 import seaborn as sns
 import json
 import os
+import re
+import json
 
 
 log = logging.getLogger(__name__)
@@ -12,8 +14,20 @@ log = logging.getLogger(__name__)
 
 class ModelWrapper(object):
 
+
+    # keys
+    MODEL = "model"
+    MODEL_FILE = "model_file"
+    DESCRIPTION = "description"
+    DATA_FILE = "data_file"
+    START_YEAR = "start_year"
+    ACCURACY = "accuracy"
+    CONFUSION_MATRIX = "confusion_matrix"
+    CLASSIFICATION_REPORT = "classification_report"
+
     # class variable for all models in the notebook
     # you need to set this fore calling constructor
+    model_dir = "../models"
     model_file_format = None
     report_file = None
     description = None
@@ -21,15 +35,95 @@ class ModelWrapper(object):
     start_year = None
 
     @staticmethod
-    def init(description, data_file, start_year, model_file_format, report_file = '../reports/summary.csv'):
+    def init(description, data_file, start_year, model_file_format, model_dir = "../models", report_file = '../reports/summary.csv'):
         ModelWrapper.description = description
         ModelWrapper.data_file = data_file
-        ModelWrapper.start_year = start_year
+        ModelWrapper.start_year = int(start_year)
         ModelWrapper.model_file_format = model_file_format
         ModelWrapper.report_file = report_file
+        ModelWrapper.model_dir = model_dir
+
+    @staticmethod
+    def get_model_wrapper_from_report(data: pd.DataFrame):
+        """
+        Gets a Model Wrapper object along with the original model object using a row from the report dataframe
+
+        Report dataframe has the following columns:
+            model
+            description
+            data_file
+            start_year
+            accuracy
+            confusion_matrix
+            classification_report
+            model_file
+
+        confusion matrix and classification reports will be converted back into their original dictionary representation
+
+        :param data: a row in the report data frame
+        :return: ModelWrapper object
+        """
+        log.info(type(data))
+        log.info(data)
+        assert len(data) == 1, f"data must of length 1 - got {len(data)}"
+
+        model = data[ModelWrapper.MODEL].values[0]
+        description = data[ModelWrapper.DESCRIPTION].values[0]
+        data_file = data[ModelWrapper.DATA_FILE].values[0]
+        start_year = int(data[ModelWrapper.START_YEAR].values[0])
+        accuracy = float(data[ModelWrapper.ACCURACY].values[0])
+        confusion_matrix_str = data[ModelWrapper.CONFUSION_MATRIX].values[0]
+        classification_report_str = data[ModelWrapper.CLASSIFICATION_REPORT].values[0]
+        model_file = data[ModelWrapper.MODEL_FILE].values[0]
+
+        log.debug(f'model_file {model_file}')
 
 
-    def __init__(self, model, X_train, y_train, X_test, y_test, model_name = None):
+        model_dir, model_name, start_year, end_year, model_file_template = ModelWrapper._get_info_from_model_filename(model_file)
+        log.debug(model_dir, model_name, start_year, end_year, model_file_template)
+
+        ModelWrapper.init(description, data_file, start_year, model_file_template)
+
+        with open(model_file, 'rb') as file:
+            model_bin = pickle.load(file)
+        mw = ModelWrapper(model_bin, model_name = model_name)
+
+        # load confusion matrix and classification_report
+        mw.cm = json.loads(confusion_matrix_str)
+        mw.cr = json.loads(classification_report_str)
+
+        return mw
+
+
+    @staticmethod
+    def _get_model_filename(model_name: str):
+        """
+        Creates model file name based on model_name and model_file_format
+        :param model_name: name of current model
+        :return: fully qualitifed file path of model to save
+        """
+        return f'{ModelWrapper.model_dir}/{model_name.lower()}-{ModelWrapper.model_file_format}'
+
+    @staticmethod
+    def _get_info_from_model_filename(model_fullpath: str) -> (str, str, str, str, str):
+        """
+        reverses _get_model_filename - takes in a fully qualified path for the model file
+        and return the model_name and model_file_format as a tuple
+
+        :param model_fullpath: fully qualitifed path of model file
+        :return:
+        """
+        matches = re.search(r'(.*)/([a-zA-Z]+)-([\d]+)-([\d]+)-([\-\d\w]+)\.pkl', model_fullpath)
+        model_dir = matches[1]
+        model_name = matches[2]
+        start_year = int(matches[3])
+        end_year = int(matches[4])
+        description = matches[5]
+        return model_dir, model_name, start_year, end_year, description
+
+
+    def __init__(self, model, X_train = None, y_train = None, X_test = None, y_test = None, model_name = None):
+        # TODO: move this to class level
         if ModelWrapper.model_file_format and \
                 ModelWrapper.report_file and \
                 ModelWrapper.description and \
@@ -57,7 +151,10 @@ class ModelWrapper(object):
             raise Exception("file_format and report_file needs to be initialized before using")
 
 
-    def fit(self) -> pd.DataFrame:
+    def fit(self, X_train = None, y_train = None) -> pd.DataFrame:
+        if X_train and y_train:
+            self.X_train = X_train
+            self.y_train = y_train
         self.model = self.model.fit(self.X_train, self.y_train)
         return self
 
@@ -84,14 +181,14 @@ class ModelWrapper(object):
         pickle.dump(self.model, open(self.model_file, 'wb'))
 
         d = {
-            "model": [self.model_name, ],
-            "description": [ModelWrapper.description, ],
-            "data_file": [ModelWrapper.data_file, ],
-            "start_year": [ModelWrapper.start_year, ],
-            "accuracy": [self.accuracy, ],
-            "confusion_matrix": [json.dumps(pd.DataFrame(self.cm).to_dict()), ],
-            "classification_report": [json.dumps(self.cr), ],
-            "model_file": [self.model_file, ]
+            ModelWrapper.MODEL: [self.model_name, ],
+            ModelWrapper.DESCRIPTION: [ModelWrapper.description, ],
+            ModelWrapper.DATA_FILE: [ModelWrapper.data_file, ],
+            ModelWrapper.START_YEAR: [ModelWrapper.start_year, ],
+            ModelWrapper.ACCURACY: [self.accuracy, ],
+            ModelWrapper.CONFUSION_MATRIX: [json.dumps(pd.DataFrame(self.cm).to_dict()), ],
+            ModelWrapper.CLASSIFICATION_REPORT: [json.dumps(self.cr), ],
+            ModelWrapper.MODEL_FILE: [self.model_file, ]
         }
 
         if os.path.exists(ModelWrapper.report_file):

@@ -5,9 +5,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 import pickle
+import logging
+
+log = logging.getLogger(__name__)
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+
 
 
 def plot_2d(X_test: pd.DataFrame, y_predict):
@@ -48,6 +53,8 @@ def get_data(filename: str, label_col: str, start_year: int, random_state = 1) -
     :param start_year: filter out entries before this year
     :return: X_train, X_test, y_train, y_test
     """
+    log.info(f"loading {filename}")
+
     features = pd.read_csv(filename)
     features = features[features.tourney_year >= start_year]
     labels = features[label_col].copy()
