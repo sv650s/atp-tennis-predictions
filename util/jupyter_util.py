@@ -45,22 +45,48 @@ def plot_2d(X_test: pd.DataFrame, y_predict):
 
 
 
-def get_data(filename: str, label_col: str, start_year: int, random_state = 1) -> (pd.DataFrame, pd.DataFrame):
+def get_data(filename: str, label_col: str, start_year: int, end_year: int, random_state = 1) -> (pd.DataFrame, pd.DataFrame):
     """
     Gets the data file, filters out unwanted entries
     :param filename: filename to load
-    :param lable_col: name of label column
+    :param label_col: name of label column
     :param start_year: filter out entries before this year
+    :param end_year: filter out entries after this year
     :return: X_train, X_test, y_train, y_test
     """
     log.info(f"loading {filename}")
 
     features = pd.read_csv(filename)
-    features = features[features.tourney_year >= start_year]
+    features = features[(features.tourney_year >= start_year) & (features.tourney_year <= end_year)]
     labels = features[label_col].copy()
     features = features.drop([label_col], axis=1)
-    print(features.shape)
+    log.info(features.shape)
     return train_test_split(features, labels, random_state=random_state)
+
+
+def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_year: int, ohe = False) -> (pd.DataFrame, pd.DataFrame):
+    """
+    Gets samples for a particular tournament for a particular year
+
+    We are going to use this to test predictions for matches for a particular tournament
+    :param filename: data file to load
+    :param label_col: name of label column
+    :param tourney_id: name of tournament
+    :param tourney_year:
+    :param ohe: indicates whether the features are one hot encoded or not. if it is the function will concat the id with tourney_id to figure out how to get the info
+    :return: features, labels
+    """
+    features = pd.read_csv(filename)
+    features = features[features.tourney_year == tourney_year]
+    if ohe:
+        features = features[features[f'tourney_id_{tourney_id}'] == 1]
+    else:
+        features = features[features.tourney_id == tourney_id]
+    log.info(features.shape)
+    # make a copy of labels before we drop them
+    labels = features[label_col]
+    return features.drop([label_col], axis=1), labels
+
 
 
 def save_model(model, file_template_name: str):
