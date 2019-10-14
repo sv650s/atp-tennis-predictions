@@ -216,6 +216,7 @@ class ModelWrapper(object):
             ModelWrapper.DESCRIPTION: [self.description, ],
             ModelWrapper.DATA_FILE: [self.data_file, ],
             ModelWrapper.START_YEAR: [self.start_year, ],
+            ModelWrapper.END_YEAR: [self.end_year, ],
             ModelWrapper.ACCURACY: [self.accuracy, ],
             ModelWrapper.CONFUSION_MATRIX: [json.dumps(pd.DataFrame(self.cm).to_dict()), ],
             ModelWrapper.CLASSIFICATION_REPORT: [json.dumps(self.cr), ],

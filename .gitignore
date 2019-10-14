@@ -2,4 +2,7 @@ datasets/
 .ipynb_checkpoints/
 .DS_Store
 .idea/
+models/
 __pycache__
+reports/test_report.csv
+
