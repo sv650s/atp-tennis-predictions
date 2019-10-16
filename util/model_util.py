@@ -147,8 +147,6 @@ class ModelWrapper(object):
         self.start_year = start_year
         self.end_year = end_year
         self.model_file_format = model_file_format
-        self.MODEL_DIR = model_dir
-        self.REPORT_FILE = report_file
 
         self.model = model
         self.X_train = X_train
@@ -156,11 +154,11 @@ class ModelWrapper(object):
         self.X_test = X_test
         self.y_test = y_test
 
-        if not self.MODEL_DIR:
-            self.MODEL_DIR = ModelWrapper.MODEL_DIR
+        if not model_dir:
+            self.model_dir = ModelWrapper.MODEL_DIR
 
-        if not self.REPORT_FILE:
-            self.REPORT_FILE = ModelWrapper.REPORT_FILE
+        if not report_file:
+            self.report_file = ModelWrapper.REPORT_FILE
 
         if not self.model_file_format:
             self.model_file_format = f'{self.start_year}-{self.end_year}-{description}.pkl'
@@ -181,7 +179,7 @@ class ModelWrapper(object):
             self.model_name = model_name
         else:
             self.model_name = type(self.model).__name__
-        self.model_file = f'../models/{self.model_name.lower()}-{self.model_file_format}'
+        self.model_file = f'{ModelWrapper.MODEL_DIR}/{self.model_name.lower()}-{self.model_file_format}'
 
 
     def fit(self, X_train = None, y_train = None) -> pd.DataFrame:
@@ -238,14 +236,14 @@ class ModelWrapper(object):
 
         }
 
-        if os.path.exists(self.REPORT_FILE):
-            log.info(f'Reading report: {self.REPORT_FILE}')
-            report = pd.read_csv(self.REPORT_FILE)
+        if os.path.exists(self.report_file):
+            log.info(f'Reading report: {self.report_file}')
+            report = pd.read_csv(self.report_file)
         else:
             report = pd.DataFrame(columns=list(d.keys()))
 
         report = report.append(pd.DataFrame(d), ignore_index=True)
         log.debug(f'report dataframe:\n{report}')
-        log.info(f'Saving report: {self.REPORT_FILE}')
-        report.to_csv(self.REPORT_FILE, index=False)
+        print(f'Saving report: {self.report_file}')
+        report.to_csv(self.report_file, index=False)
         # report.to_csv(ModelWrapper.report_file, index=False, sep="|")
