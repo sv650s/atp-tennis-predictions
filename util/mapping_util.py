@@ -41,21 +41,27 @@ class Mapper(object):
 
 
     @staticmethod
-    def get_player_info_by_id(ohe_column = None, player_id = None):
+    def get_player_info_by_id(ohe_columns = None, player_ids = None):
         """
         Returns all player information based on column name or just the player id
-        :param ohe_column: ohe column name - ie, p1_1234 or p2_1234
-        :param player_id: numeric player id - ie, 12234
+        :param ohe_columns: ohe column name - ie, p1_1234 or p2_1234
+        :param player_ids: numeric player id - ie, 12234
         :return:
         """
-        assert ohe_column is not None or player_id is not None, "Cannot pass both ohe_column and player_id"
+        assert ohe_columns is not None or player_ids is not None, "Cannot pass both ohe_column and player_id"
 
-        if ohe_column:
-            player_id = ohe_column.split("_")[1]
-        log.info(f'player_id: {player_id}')
+        if ohe_columns:
+            if isinstance(ohe_columns, list):
+                player_ids = [col.split("_")[1] for col in ohe_columns]
+            else:
+                player_ids = [ohe_columns.split("_")[1]]
+        log.info(f'player_id: {player_ids}')
+
+        if not isinstance(player_ids, list):
+            player_ids = [player_ids]
 
         players_df = Mapper._get_players_df()
-        player_info = players_df[players_df.id == player_id]
+        player_info = players_df[players_df.id.isin(player_ids)]
         log.debug(f'player info: {player_info}')
         return player_info
 

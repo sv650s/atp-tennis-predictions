@@ -11,15 +11,13 @@ from datetime import datetime
 
 
 log = logging.getLogger(__name__)
-REPORT_FILE = '../reports/summary.csv'
-MODEL_DIR = '../models'
 
 
 class ModelWrapper(object):
 
     # default values
-    report_file = REPORT_FILE
-    model_dir = MODEL_DIR
+    REPORT_FILE = '../reports/summary.csv'
+    MODEL_DIR = '../models'
 
     # keys
     MODEL_NAME = "model_name"
@@ -29,6 +27,7 @@ class ModelWrapper(object):
     START_YEAR = "start_year"
     END_YEAR = "end_year"
     ACCURACY = "accuracy"
+    ROC_AUC_SCORE = "roc_auc_score"
     CONFUSION_MATRIX = "confusion_matrix"
     CLASSIFICATION_REPORT = "classification_report"
     FIT_TIME_MIN = "fit_time_min"
@@ -66,6 +65,7 @@ class ModelWrapper(object):
         description = data[ModelWrapper.DESCRIPTION].values[0]
         data_file = data[ModelWrapper.DATA_FILE].values[0]
         accuracy = float(data[ModelWrapper.ACCURACY].values[0])
+        roc_auc_score = float(data[ModelWrapper.ROC_AUC_SCORE].values[0])
         confusion_matrix_str = data[ModelWrapper.CONFUSION_MATRIX].values[0]
         classification_report_str = data[ModelWrapper.CLASSIFICATION_REPORT].values[0]
         model_file = data[ModelWrapper.MODEL_FILE].values[0]
@@ -88,6 +88,7 @@ class ModelWrapper(object):
 
         # set other variables
         mw.accuracy = accuracy
+        mw.roc_auc_score = roc_auc_score
         mw.fit_time_min = fit_time_min
         mw.predict_time_min = predict_time_min
 
@@ -101,7 +102,7 @@ class ModelWrapper(object):
         :param model_name: name of current model
         :return: fully qualitifed file path of model to save
         """
-        return f'{ModelWrapper.model_dir}/{model_name.lower()}-{ModelWrapper.model_file_format}'
+        return f'{ModelWrapper.MODEL_DIR}/{model_name.lower()}-{ModelWrapper.model_file_format}'
 
     @staticmethod
     def _get_info_from_model_filename(model_fullpath: str) -> (str, str, str, str, str):
@@ -124,7 +125,7 @@ class ModelWrapper(object):
 
     def __init__(self, model, description, data_file, start_year, end_year,
                  X_train = None, y_train = None, X_test = None, y_test = None, model_name = None,
-                model_file_format = None, model_dir = MODEL_DIR, report_file = REPORT_FILE):
+                model_file_format = None, model_dir = None, report_file = None):
         """
         Creates a model wrapper object
         :param model: model binary file
@@ -146,14 +147,20 @@ class ModelWrapper(object):
         self.start_year = start_year
         self.end_year = end_year
         self.model_file_format = model_file_format
-        self.model_dir = model_dir
-        self.report_file = report_file
+        self.MODEL_DIR = model_dir
+        self.REPORT_FILE = report_file
 
         self.model = model
         self.X_train = X_train
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
+
+        if not self.MODEL_DIR:
+            self.MODEL_DIR = ModelWrapper.MODEL_DIR
+
+        if not self.REPORT_FILE:
+            self.REPORT_FILE = ModelWrapper.REPORT_FILE
 
         if not self.model_file_format:
             self.model_file_format = f'{self.start_year}-{self.end_year}-{description}.pkl'
@@ -166,6 +173,7 @@ class ModelWrapper(object):
         self.cr = None
         # accuracy score
         self.accuracy = None
+        self.roc_auc_score = None
         self.fit_time_min = None
         self.predict_time_min = None
 
@@ -195,8 +203,10 @@ class ModelWrapper(object):
 
     def analyze(self):
         self.accuracy = accuracy_score(self.y_test, self.y_predict)
-
         print(f'Model Score: {accuracy_score(self.y_test, self.y_predict)}\n')
+
+        self.roc_auc_score = roc_auc_score(self.y_test, self.y_predict)
+        print(f'ROC/AUC Score: {self.roc_auc_score}')
 
         cr_str = classification_report(self.y_test, self.y_predict, target_names=['Loss', 'Win'])
         self.cr = classification_report(self.y_test, self.y_predict, target_names=['Loss', 'Win'], output_dict=True)
@@ -218,6 +228,7 @@ class ModelWrapper(object):
             ModelWrapper.START_YEAR: [self.start_year, ],
             ModelWrapper.END_YEAR: [self.end_year, ],
             ModelWrapper.ACCURACY: [self.accuracy, ],
+            ModelWrapper.ROC_AUC_SCORE: [self.roc_auc_score, ],
             ModelWrapper.CONFUSION_MATRIX: [json.dumps(pd.DataFrame(self.cm).to_dict()), ],
             ModelWrapper.CLASSIFICATION_REPORT: [json.dumps(self.cr), ],
             ModelWrapper.MODEL_FILE: [self.model_file, ],
@@ -227,14 +238,14 @@ class ModelWrapper(object):
 
         }
 
-        if os.path.exists(self.report_file):
-            log.info(f'Reading report: {self.report_file}')
-            report = pd.read_csv(self.report_file)
+        if os.path.exists(self.REPORT_FILE):
+            log.info(f'Reading report: {self.REPORT_FILE}')
+            report = pd.read_csv(self.REPORT_FILE)
         else:
             report = pd.DataFrame(columns=list(d.keys()))
 
         report = report.append(pd.DataFrame(d), ignore_index=True)
         log.debug(f'report dataframe:\n{report}')
-        log.info(f'Saving report: {self.report_file}')
-        report.to_csv(self.report_file, index=False)
+        log.info(f'Saving report: {self.REPORT_FILE}')
+        report.to_csv(self.REPORT_FILE, index=False)
         # report.to_csv(ModelWrapper.report_file, index=False, sep="|")
