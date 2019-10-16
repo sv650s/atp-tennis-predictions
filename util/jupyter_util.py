@@ -64,7 +64,7 @@ def get_data(filename: str, label_col: str, start_year: int, end_year: int, rand
     return train_test_split(features, labels, random_state=random_state)
 
 
-def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_year: int, ohe = False) -> (pd.DataFrame, pd.DataFrame):
+def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_year: int, feature_filter = None, ohe = True) -> (pd.DataFrame, pd.DataFrame):
     """
     Gets samples for a particular tournament for a particular year
 
@@ -72,8 +72,9 @@ def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_yea
     :param filename: data file to load
     :param label_col: name of label column
     :param tourney_id: name of tournament
-    :param tourney_year:
-    :param ohe: indicates whether the features are one hot encoded or not. if it is the function will concat the id with tourney_id to figure out how to get the info
+    :param tourney_year: year of tournament
+    :param feature_filter: function to filter out features
+    :param ohe: indicates whether the features are one hot encoded or not. if it is the function will concat the id with tourney_id to figure out how to get the info. Default is True
     :return: features, labels
     """
     features = pd.read_csv(filename)
@@ -83,9 +84,17 @@ def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_yea
     else:
         features = features[features.tourney_id == tourney_id]
     log.info(features.shape)
+
     # make a copy of labels before we drop them
     labels = features[label_col]
-    return features.drop([label_col], axis=1), labels
+    features = features.drop([label_col], axis=1)
+
+    # additional feature filters
+    if feature_filter:
+        features = feature_filter(features)
+
+    return features, labels
+
 
 
 

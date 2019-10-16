@@ -9,6 +9,7 @@ dependencies:
     - numpy
     - jupyter
     - jupyterlab
+    - jupyter_contrib_nbextensions
     - keras
     - matplotlib
     - numpy
@@ -18,6 +19,7 @@ dependencies:
     - python>=3.7
     - pygraphviz
     - pytest
+    - pytest-datadir
     - scikit-learn
     - scipy
     - seaborn
