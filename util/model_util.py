@@ -179,8 +179,8 @@ class ModelWrapper(object):
         # accuracy score
         self.accuracy = None
         self.roc_auc_score = None
-        self.fit_time_min = None
-        self.predict_time_min = None
+        self.fit_time_min = 0
+        self.predict_time_min = 0
 
         if model_name:
             self.model_name = model_name
