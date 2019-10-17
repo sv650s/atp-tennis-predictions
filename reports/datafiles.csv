@@ -3,6 +3,11 @@ atp_matches_1985-2019_features-diff-history5-matchup5.csv,1985,2019,"* Diff stat
 atp_matches_1985-2019_features-diff-ohe-history5-matchup5.csv,1985,2019,"* Diff stats * OHE - player id, tournament id, surface, idc, hand * history+matchup (5 matches)"
 atp_matches_1985-2019_features-diff-ohe.csv,1985,2019,"* Diff stats * OHE - player id, tournament id, surface, idc, hand"
 atp_matches_1985-2019_features-diff.csv,1985,2019,* Diff stats
-atp_matches_1985-2019_features-history5-matchup5.csv,1985,2019,"* Diff stats * history+matchup (5 matches)"
-atp_matches_1985-2019_features.csv,1985,2019,* Player stats
+atp_matches_1985-2019_features-raw-history5-matchup5.csv,1985,2019,"Diff stats
+OHE categories
+history+matchup (5 matches)"
+atp_matches_1985-2019_features-raw.csv,1985,2019,* Player stats
 atp_matches_1985-2019_preprocessed.csv,1985,2019,pre-processed (only clean and imputation)
+atp_matches_1985-2019_features-raw-history10-matchup10.csv,1985,2019,"Diff stats
+OHE categories
+history+matchup (10 matches)"
