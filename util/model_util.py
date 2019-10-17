@@ -61,8 +61,8 @@ class ModelWrapper(object):
         :param data: a row in the report data frame
         :return: ModelWrapper object
         """
-        log.info(type(data))
-        log.info(data)
+        log.debug(type(data))
+        log.debug(data)
         assert len(data) == 1, f"data must of length 1 - got {len(data)}"
 
         # get these from the file name
@@ -85,6 +85,7 @@ class ModelWrapper(object):
         model_dir, model_file_template = ModelWrapper._get_info_from_model_filename(model_file)
         log.debug(model_dir, model_name, start_year, end_year, model_file_template)
 
+        log.info(f'Loading model from file: {model_file}')
         with open(model_file, 'rb') as file:
             model_bin = pickle.load(file)
         mw = ModelWrapper(model_bin, description, data_file, start_year, end_year, model_name = model_name)

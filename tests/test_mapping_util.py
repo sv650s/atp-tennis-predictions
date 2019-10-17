@@ -94,4 +94,4 @@ def test_get_tourney_info_by_label(shared_datadir):
     assert len(info) == 1, "returned number of rows mismatched"
     assert info.name.values[0] == "atlanta", "returned tournament name mismatch"
 
-
+# TODO: test get_tourney_label

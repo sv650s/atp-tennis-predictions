@@ -57,13 +57,17 @@ class Mapper(object):
 
     @staticmethod
     def get_tourney_id_reverse_map():
+        if Mapper.tourney_id_reverse_map is None:
+            tourney_id_map = Mapper.get_tourney_id_map()
+            Mapper.tourney_id_reverse_map = { str(value) : key for key, value in tourney_id_map.items() }
+        return Mapper.tourney_id_reverse_map
+
+    @staticmethod
+    def get_tourney_id_map():
         if Mapper.tourney_id_map is None:
             with open('../models/tid_map.json', 'r') as file:
                 Mapper.tourney_id_map = json.load(file)
-            Mapper.tourney_id_reverse_map = { str(value) : key for key, value in Mapper.tourney_id_map.items() }
-        return Mapper.tourney_id_reverse_map
-
-
+        return Mapper.tourney_id_map
 
 
     @staticmethod
@@ -112,6 +116,27 @@ class Mapper(object):
         tourney_df = Mapper._get_tourney_df()
         tourney_info = tourney_df[tourney_df.id.isin(mapped_tourney_ids)]
         return tourney_info
+
+    @staticmethod
+    def get_tourney_label(tourney_ids):
+        """
+        gets the tourney label from a tourney_id
+
+        this supports passing in a single value or a list
+
+        :param tourney_ids:  this can be a list or a string
+        :return: string tourney label
+        """
+        tourney_id_map = Mapper.get_tourney_id_map()
+
+        if not isinstance(tourney_ids, list):
+            tourney_labels = str(tourney_id_map[tourney_ids])
+        else:
+            tourney_labels = [str(tourney_id_map[id]) for id in tourney_ids]
+
+        return tourney_labels
+
+
 
 
 
