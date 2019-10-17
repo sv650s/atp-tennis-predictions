@@ -18,11 +18,15 @@ log = logging.getLogger(__name__)
 class Mapper(object):
 
     PLAYERS_FILE = '../datasets/players.csv'
+    TOURNEY_FILE = '../datasets/atp_matches_1985-2019_preprocessed.csv'
 
     instance = None
     players_df = None
-    player_mapper = None
-    tourney_mapper = None
+    tourney_df = None
+    # maps actual tourney ID to label
+    tourney_id_map = None
+    # maps label to actual tourney ID
+    tourney_id_reverse_map = None
 
     @staticmethod
     def getInstance():
@@ -38,6 +42,28 @@ class Mapper(object):
             log.debug(Mapper.players_df.head(1))
             log.debug(Mapper.players_df.info())
         return Mapper.players_df
+
+    @staticmethod
+    def _get_tourney_df():
+        if Mapper.tourney_df is None:
+            tourney_df = pd.read_csv(Mapper.TOURNEY_FILE)
+            tourney_df["year"] = tourney_df.tourney_id.apply(lambda x: x.split("-")[0])
+            tourney_df["tourney_id"] = tourney_df.tourney_id.apply(lambda x: x.split("-")[1])
+            # filter out columns
+            tourney_df = tourney_df[["tourney_id", "year", "tourney_name", "surface", "draw_size", "tourney_level"]]
+            Mapper.tourney_df = tourney_df.drop_duplicates(subset=["tourney_id", "tourney_name"], keep='last')
+            Mapper.tourney_df = Mapper.tourney_df.rename({"tourney_id":"id", "tourney_name":"name", "tourney_level": "level"}, axis=1)
+        return Mapper.tourney_df
+
+    @staticmethod
+    def get_tourney_id_reverse_map():
+        if Mapper.tourney_id_map is None:
+            with open('../models/tid_map.json', 'r') as file:
+                Mapper.tourney_id_map = json.load(file)
+            Mapper.tourney_id_reverse_map = { str(value) : key for key, value in Mapper.tourney_id_map.items() }
+        return Mapper.tourney_id_reverse_map
+
+
 
 
     @staticmethod
@@ -65,6 +91,27 @@ class Mapper(object):
         log.debug(f'player info: {player_info}')
         return player_info
 
+    @staticmethod
+    def get_tourney_info_by_label(tourney_ids = None):
+        """
+        Get tournament name(s) by their ID's
+        :param tourney_ids:
+        :return:
+        """
+
+        tourney_id_reverse_map = Mapper.get_tourney_id_reverse_map()
+
+        # convert input to list
+        if isinstance(tourney_ids, list):
+            mapped_tourney_ids = [tourney_id_reverse_map[id] for id in tourney_ids]
+        else:
+            mapped_tourney_ids = [tourney_id_reverse_map[tourney_ids]]
+
+        print(f'mapped_tourney_ids: {mapped_tourney_ids}')
+
+        tourney_df = Mapper._get_tourney_df()
+        tourney_info = tourney_df[tourney_df.id.isin(mapped_tourney_ids)]
+        return tourney_info
 
 
 

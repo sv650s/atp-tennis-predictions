@@ -12,12 +12,19 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
+REPORT_FILE = '../reports/summary.csv'
+MODEL_DIR = '../models'
+LABEL_COL = 'p1_winner'
+RSTATE = 1
+N_JOBS = 4
+MAX_ITER = 100
+
 
 class ModelWrapper(object):
 
     # default values
-    REPORT_FILE = '../reports/summary.csv'
-    MODEL_DIR = '../models'
+    REPORT_FILE = REPORT_FILE
+    MODEL_DIR = MODEL_DIR
 
     # keys
     MODEL_NAME = "model_name"

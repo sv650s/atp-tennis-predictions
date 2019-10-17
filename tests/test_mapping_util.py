@@ -67,3 +67,31 @@ def test_get_player_info_by_ohe_col_list(shared_datadir):
     info = Mapper.get_player_info_by_id(ohe_columns=["p2_102778", "p1_106361"])
     assert len(info) == 2, "returned number of rows mismatched"
     assert info.name.values[0] == "abdul hamid makhkamov", "returned player name mismatch"
+
+
+def test_tourney_id_reverse_map():
+    """
+    test to see if our reverse mapping is correct
+    :return:
+    """
+    reverse_map = Mapper.get_tourney_id_reverse_map()
+    print(reverse_map)
+    assert reverse_map["163"] == "6116", "should get 6116"
+
+def test_get_tourney_info_by_label(shared_datadir):
+    """
+    test to see if we can get tourney info by id properly
+    :param shared_datadir:
+    :return:
+    """
+    Mapper.TOURNEY_FILE = f'{shared_datadir}/preprocessed.csv'
+    info = Mapper.get_tourney_info_by_label("163")
+    assert len(info) == 1, "returned number of rows mismatched"
+    assert info.name.values[0] == "atlanta", "returned tournament name mismatch"
+
+    # test if we pass in list
+    info = Mapper.get_tourney_info_by_label(["163"])
+    assert len(info) == 1, "returned number of rows mismatched"
+    assert info.name.values[0] == "atlanta", "returned tournament name mismatch"
+
+
