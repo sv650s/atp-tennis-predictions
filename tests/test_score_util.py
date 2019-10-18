@@ -40,3 +40,44 @@ def test_seed_all_players(seed_df):
     assert seed_df.iloc[1].loser_seed == 3, "winner seed should be 3"
 
 
+def test_clean_score():
+    score = "6-7(3) 6-3"
+    assert su.clean_score(score) == "6-7 6-3", "did not remove tiebreak from first set"
+
+    score = "6-3 6-7(3)"
+    assert su.clean_score(score) == "6-3 6-7", "did not remove tiebreak from 2nd set"
+
+    score = "6-7(3) 6-7(3)"
+    assert su.clean_score(score) == "6-7 6-7", "did not remove tiebreak from both set"
+
+    score = "b6-7(3) 6-7(3)a "
+    assert su.clean_score(score) == "6-7 6-7", "did not remove special characters from score"
+
+def test_breakup_match_scores():
+
+    score = "7-6(3) 6-3"
+    wg1, lg1, wg2, lg2, wg3, lg3, wg4, lg4, wg5, lg5 = su.breakup_match_score(score)
+    assert wg1 == 7
+    assert lg1 == 6
+    assert wg2 == 6
+    assert lg2 == 3
+    assert wg3 == 0
+    assert lg3 == 0
+    assert wg4 == 0
+    assert lg4 == 0
+    assert wg5 == 0
+    assert lg5 == 0
+
+    score = "7-5 6-3 2-6 6-7(3) 7-6(5)"
+    wg1, lg1, wg2, lg2, wg3, lg3, wg4, lg4, wg5, lg5 = su.breakup_match_score(score)
+    assert wg1 == 7
+    assert lg1 == 5
+    assert wg2 == 6
+    assert lg2 == 3
+    assert wg3 == 2
+    assert lg3 == 6
+    assert wg4 == 6
+    assert lg4 == 7
+    assert wg5 == 7
+    assert lg5 == 6
+

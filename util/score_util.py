@@ -1,6 +1,7 @@
 import logging
 import pandas as pd
 import re
+import numpy as np
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def process_scores(scores: str):
         loser_games_won
     """
 
-    scores = re.sub(r"[^0-9-\ ]","", scores).strip()
+    scores = clean_score(scores)
     log.debug(f'scores {scores}')
     set_score = [0, 0]
     game_score = [0, 0]
@@ -34,6 +35,39 @@ def process_scores(scores: str):
             set_score[1] += 1
 
     return set_score[0], game_score[0], set_score[1], game_score[1]
+
+def breakup_match_score(scores: str):
+    """
+    Breaks up match score into how many games winner and loser won per set
+
+    Since matches can have up to 5 sets, this function will return 10 numbers with 0's if not played
+
+    :param scores:
+    :return: winner game(wg) 1, loser game(lg) 1, wg 2, lg 2, wg 3, lg 3, wg 4, lg 4, wg 5, lg 5
+    """
+    # winner games
+    wg = [0] * 5
+    # loser games
+    lg = [0] * 5
+    sets = clean_score(scores).split()
+    for idx in np.arange(0, len(sets)):
+        set_scores = sets[idx].split("-")
+        wg[idx] = int(set_scores[0])
+        lg[idx] = int(set_scores[1])
+
+    return wg[0], lg[0], wg[1], lg[1], wg[2], lg[2], wg[3], lg[3], wg[4], lg[4]
+
+
+def clean_score(scores: str):
+    """
+    Since we are not going to be predictiong down to the points of a match (missing for normal sets.
+    We want to clean up match score by removing tiebreak points information. Normally this is indicated by ()
+
+    :param scores:
+    :return:
+    """
+    scores = re.sub(r'\(\d+\)', '', scores)
+    return re.sub(r"[^0-9-\ ]", "", scores).strip()
 
 
 def seed_all_players(matches: pd.DataFrame, tid: str) -> pd.DataFrame:

@@ -47,7 +47,8 @@ def plot_2d(X_test: pd.DataFrame, y_predict):
 
 def get_data(filename: str, label_col: str, start_year: int, end_year: int, random_state = 1) -> (pd.DataFrame, pd.DataFrame):
     """
-    Gets the data file, filters out unwanted entries
+    Gets the data file, filters out unwanted entries and then split into training and test sets
+
     :param filename: filename to load
     :param label_col: name of label column
     :param start_year: filter out entries before this year
@@ -66,9 +67,10 @@ def get_data(filename: str, label_col: str, start_year: int, end_year: int, rand
 
 def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_year: int, feature_filter = None, ohe = True) -> (pd.DataFrame, pd.DataFrame):
     """
-    Gets samples for a particular tournament for a particular year
+    Gets samples for a particular tournament for a particular year.
 
-    We are going to use this to test predictions for matches for a particular tournament
+    We are going to use this to test predictions for matches of a particular tournament
+
     :param filename: data file to load
     :param label_col: name of label column
     :param tourney_id: name of tournament
