@@ -225,6 +225,7 @@ class ModelWrapper(object):
         sns.heatmap(cm, annot=True, vmin=0, vmax=len(self.y_predict))
 
     def save(self):
+        log.info(f'Saving model file: {self.model_file}')
         pickle.dump(self.model, open(self.model_file, 'wb'))
 
         d = {

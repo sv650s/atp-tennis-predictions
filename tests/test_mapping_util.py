@@ -69,11 +69,12 @@ def test_get_player_info_by_ohe_col_list(shared_datadir):
     assert info.name.values[0] == "abdul hamid makhkamov", "returned player name mismatch"
 
 
-def test_tourney_id_reverse_map():
+def test_tourney_id_reverse_map(shared_datadir):
     """
     test to see if our reverse mapping is correct
     :return:
     """
+    Mapper.TOURNEY_MAP_FILE = f'{shared_datadir}/tid_map.json'
     reverse_map = Mapper.get_tourney_id_reverse_map()
     print(reverse_map)
     assert reverse_map["163"] == "6116", "should get 6116"
@@ -85,6 +86,7 @@ def test_get_tourney_info_by_label(shared_datadir):
     :return:
     """
     Mapper.TOURNEY_FILE = f'{shared_datadir}/preprocessed.csv'
+    Mapper.TOURNEY_MAP_FILE = f'{shared_datadir}/tid_map.json'
     info = Mapper.get_tourney_info_by_label("163")
     assert len(info) == 1, "returned number of rows mismatched"
     assert info.name.values[0] == "atlanta", "returned tournament name mismatch"
@@ -94,4 +96,9 @@ def test_get_tourney_info_by_label(shared_datadir):
     assert len(info) == 1, "returned number of rows mismatched"
     assert info.name.values[0] == "atlanta", "returned tournament name mismatch"
 
-# TODO: test get_tourney_label
+def test_get_tourney_label(shared_datadir):
+    """
+    test to make sure we are getting the right label from tournament id
+    """
+    Mapper.TOURNEY_MAP_FILE = f'{shared_datadir}/tid_map.json'
+    assert Mapper.get_tourney_label("0315") == "4", "returned wrong tourney label"

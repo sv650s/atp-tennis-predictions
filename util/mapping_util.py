@@ -19,6 +19,7 @@ class Mapper(object):
 
     PLAYERS_FILE = '../datasets/players.csv'
     TOURNEY_FILE = '../datasets/atp_matches_1985-2019_preprocessed.csv'
+    TOURNEY_MAP_FILE = '../models/tid_map.json'
 
     instance = None
     players_df = None
@@ -65,7 +66,7 @@ class Mapper(object):
     @staticmethod
     def get_tourney_id_map():
         if Mapper.tourney_id_map is None:
-            with open('../models/tid_map.json', 'r') as file:
+            with open(Mapper.TOURNEY_MAP_FILE, 'r') as file:
                 Mapper.tourney_id_map = json.load(file)
         return Mapper.tourney_id_map
 
