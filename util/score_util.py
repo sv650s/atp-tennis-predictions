@@ -19,22 +19,28 @@ def process_scores(scores: str):
         loser_games_won
     """
 
-    scores = clean_score(scores)
     log.debug(f'scores {scores}')
     set_score = [0, 0]
     game_score = [0, 0]
-    sets = scores.split()
-    for set in sets:
-        p1 = int(set.split("-")[0])
-        p2 = int(set.split("-")[1])
-        game_score[0] += p1
-        game_score[1] += p2
-        if p1 > p2:
-            set_score[0] += 1
-        else:
-            set_score[1] += 1
 
-    return set_score[0], game_score[0], set_score[1], game_score[1]
+    # we don't have some of the scores
+    if scores is not np.nan and scores is not None:
+        scores = clean_score(scores)
+        sets = scores.split()
+        for set in sets:
+            p1 = int(set.split("-")[0])
+            p2 = int(set.split("-")[1])
+            game_score[0] += p1
+            game_score[1] += p2
+            if p1 > p2:
+                set_score[0] += 1
+            else:
+                set_score[1] += 1
+
+    set_diff = set_score[0] - set_score[1]
+    games_diff = game_score[0] - game_score[1]
+
+    return set_score[0], game_score[0], set_score[1], game_score[1], set_diff, games_diff
 
 def breakup_match_score(scores: str):
     """
@@ -43,19 +49,29 @@ def breakup_match_score(scores: str):
     Since matches can have up to 5 sets, this function will return 10 numbers with 0's if not played
 
     :param scores:
-    :return: winner game(wg) 1, loser game(lg) 1, wg 2, lg 2, wg 3, lg 3, wg 4, lg 4, wg 5, lg 5
+    :return: winner game(wg) 1, loser game(lg) 1, wg 2, lg 2, wg 3, lg 3, wg 4, lg 4, wg 5, lg 5,
+                s1_diff, s2_diff, s3_diff, s4_diff, s5_diff, sets
     """
+    # print(scores)
+    # print(type(scores))
+    # print(scores is None or scores is np.nan)
+
     # winner games
     wg = [0] * 5
     # loser games
     lg = [0] * 5
-    sets = clean_score(scores).split()
-    for idx in np.arange(0, len(sets)):
-        set_scores = sets[idx].split("-")
-        wg[idx] = int(set_scores[0])
-        lg[idx] = int(set_scores[1])
+    sets = []
 
-    return wg[0], lg[0], wg[1], lg[1], wg[2], lg[2], wg[3], lg[3], wg[4], lg[4]
+    # we dont' have scores for some matches
+    if scores is not np.nan and scores is not None:
+        sets = clean_score(scores).split()
+        for idx in np.arange(0, len(sets)):
+            set_scores = sets[idx].split("-")
+            wg[idx] = int(set_scores[0])
+            lg[idx] = int(set_scores[1])
+
+    return wg[0], lg[0], wg[1], lg[1], wg[2], lg[2], wg[3], lg[3], wg[4], lg[4], \
+           wg[0] - lg[0], wg[1] - lg[1], wg[2] - lg[2], wg[3] - lg[3], wg[4] - lg[4], len(sets)
 
 
 def clean_score(scores: str):
@@ -63,8 +79,7 @@ def clean_score(scores: str):
     Since we are not going to be predictiong down to the points of a match (missing for normal sets.
     We want to clean up match score by removing tiebreak points information. Normally this is indicated by ()
 
-    :param scores:
-    :return:
+    :param scoresreturn:
     """
     scores = re.sub(r'\(\d+\)', '', scores)
     return re.sub(r"[^0-9-\ ]", "", scores).strip()
