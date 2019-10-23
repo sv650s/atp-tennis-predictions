@@ -8,7 +8,7 @@ from util.mapping_util import Mapper
 
 
 log = logging.getLogger(__name__)
-
+logging.basicConfig(level=logging.INFO)
 
 
 def test_get_player_info_by_id(shared_datadir):

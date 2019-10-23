@@ -10,10 +10,11 @@ import numpy as np
 
 
 log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 MODEL_DIR = "../models"
 DESCRIPTION = "diff-ohe-history_test-matchup_test"
-START_YEAR = 1998
+START_YEAR = 1980
 END_YEAR = 2018
 MODEL_TEMPLATE_NAME = f'{START_YEAR}-{END_YEAR}-{DESCRIPTION}.pkl'
 MODEL_NAME = "modelname"
@@ -60,7 +61,7 @@ def test_save_load_model(datadir):
         os.remove(ModelWrapper.REPORT_FILE)
 
     feature_file = f'{datadir}/features.csv'
-    X_train, X_test, y_train, y_test = ju.get_data(feature_file, "p1_winner", 1980, 2019)
+    X_train, X_test, y_train, y_test = ju.get_data(feature_file, "p1_winner", START_YEAR, END_YEAR)
     mw = ModelWrapper(DecisionTreeClassifier(random_state=1),
                       description=DESCRIPTION,
                       data_file=feature_file,
@@ -80,10 +81,14 @@ def test_save_load_model(datadir):
     mw.save()
 
     # load our model back
-    report = pd.read_csv(ModelWrapper.REPORT_FILE)
+    assert os.path.exists(mw.report_file), f"{mw.report_file} does not exist"
+    log.info(f"loading report file: {mw.report_file}")
+    report = pd.read_csv(mw.report_file)
     assert len(report) == 1, "report should have 1 row"
 
-
+    log.info(f'report type: {type(report)}')
+    log.info(report.head())
+    log.info(f'Selected row: {report[report.description == DESCRIPTION]}')
     loaded_mw = ModelWrapper.get_model_wrapper_from_report(report[report.description == DESCRIPTION])
     loaded_mw.X_train = X_train
     loaded_mw.y_train = y_train
@@ -97,3 +102,67 @@ def test_save_load_model(datadir):
     assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
     assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"
 
+
+def filter_data(data):
+    data = data.drop(["tourney_level_label"], axis=1)
+    return data
+
+
+
+@pytest.fixture()
+def data_filter():
+    return filter_data
+
+def test_save_load_model_with_filter(datadir, data_filter):
+    """
+    Create a model and train then save the model and load it back to make sure we are getting the same thing
+    as before
+
+    :param datadir: directory where files are
+    :return:
+    """
+    # save our files to our test directory
+    ModelWrapper.REPORT_FILE = f'{datadir}/summary.csv'
+    ModelWrapper.MODEL_DIR = f'{datadir}'
+
+    if os.path.exists(ModelWrapper.REPORT_FILE):
+        os.remove(ModelWrapper.REPORT_FILE)
+
+    feature_file = f'{datadir}/features.csv'
+    X_train, X_test, y_train, y_test = ju.get_data(feature_file, "p1_winner", START_YEAR, END_YEAR, data_filter= data_filter)
+    mw = ModelWrapper(DecisionTreeClassifier(random_state=1),
+                      description=DESCRIPTION,
+                      data_file=feature_file,
+                      start_year=START_YEAR,
+                      end_year=END_YEAR,
+                      X_train=X_train,
+                      y_train=y_train,
+                      X_test=X_test,
+                      y_test=y_test,
+                      data_filter=data_filter).fit()
+    y_predict_dt = mw.predict()
+    log.debug(f'y_predict_dt {y_predict_dt}')
+    mw.analyze()
+
+    accuracy = mw.accuracy
+    roc_auc_score = mw.roc_auc_score
+
+    mw.save()
+
+    # load our model back
+    report = pd.read_csv(ModelWrapper.REPORT_FILE)
+    assert len(report) == 1, "report should have 1 row"
+
+
+    loaded_mw = ModelWrapper.get_model_wrapper_from_report(report[report.description == DESCRIPTION], load_data = True)
+    # loaded_mw.X_train = X_train
+    # loaded_mw.y_train = y_train
+    # loaded_mw.X_test = X_test
+    # loaded_mw.y_test = y_test
+
+    y_predict_loaded = loaded_mw.predict()
+    log.debug(f'y_predict_loaded {y_predict_loaded}')
+
+    assert loaded_mw.accuracy == accuracy, "accuracy does not match"
+    assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
+    assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"

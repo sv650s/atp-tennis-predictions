@@ -17,6 +17,8 @@ def process_scores(scores: str):
         winner_games_won
         loser_sets_won
         loser_games_won
+        set_diff
+        games_diff
     """
 
     log.debug(f'scores {scores}')

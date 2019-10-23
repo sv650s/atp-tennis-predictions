@@ -83,10 +83,8 @@ class Mapper(object):
 
         if ohe_columns:
             if isinstance(ohe_columns, list):
-                if "_" in ohe_columns:
-                    player_ids = [col.split("_")[1] for col in ohe_columns]
-                else:
-                    player_ids = [col for col in ohe_columns]
+                log.info("list comprehension")
+                player_ids = [col.split("_")[1] if "_" in col else col for col in ohe_columns]
             else:
                 player_ids = [ohe_columns.split("_")[1]]
         log.info(f'player_id: {player_ids}')

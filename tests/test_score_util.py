@@ -22,11 +22,13 @@ def seed_df():
 
 def test_process_scores():
     score = "6-7 4-6 6-3 6-2 6-0"
-    ws, wg, ls, lg = su.process_scores(score)
+    ws, wg, ls, lg, sd, gd = su.process_scores(score)
     assert ws == 3, "winning set should be 3"
     assert ls == 2, "loser set should be 2"
     assert wg == 28, "winning games should be 28"
     assert lg == 18, "winning games should be 18"
+    assert sd == 1, "set diff should be 1"
+    assert gd == 10, "game diff should be 10"
 
 
 def test_seed_all_players(seed_df):
@@ -56,7 +58,7 @@ def test_clean_score():
 def test_breakup_match_scores():
 
     score = "7-6(3) 6-3"
-    wg1, lg1, wg2, lg2, wg3, lg3, wg4, lg4, wg5, lg5 = su.breakup_match_score(score)
+    wg1, lg1, wg2, lg2, wg3, lg3, wg4, lg4, wg5, lg5, s1d, s2d, s3d, s4d, s5d, sets = su.breakup_match_score(score)
     assert wg1 == 7
     assert lg1 == 6
     assert wg2 == 6
@@ -67,9 +69,15 @@ def test_breakup_match_scores():
     assert lg4 == 0
     assert wg5 == 0
     assert lg5 == 0
+    assert s1d == 1, "set 1 diff wrong"
+    assert s2d == 3, "set 2 diff wrong"
+    assert s3d == 0, "set 3 diff wrong"
+    assert s4d == 0, "set 4 diff wrong"
+    assert s5d == 0, "set 5 diff wrong"
+    assert sets == 2, "number of sets wrong"
 
     score = "7-5 6-3 2-6 6-7(3) 7-6(5)"
-    wg1, lg1, wg2, lg2, wg3, lg3, wg4, lg4, wg5, lg5 = su.breakup_match_score(score)
+    wg1, lg1, wg2, lg2, wg3, lg3, wg4, lg4, wg5, lg5, s1d, s2d, s3d, s4d, s5d, sets = su.breakup_match_score(score)
     assert wg1 == 7
     assert lg1 == 5
     assert wg2 == 6
@@ -80,4 +88,10 @@ def test_breakup_match_scores():
     assert lg4 == 7
     assert wg5 == 7
     assert lg5 == 6
+    assert s1d == 2, "set 1 diff wrong"
+    assert s2d == 3, "set 2 diff wrong"
+    assert s3d == -4, "set 3 diff wrong"
+    assert s4d == -1, "set 4 diff wrong"
+    assert s5d == 1, "set 5 diff wrong"
+    assert sets == 5, "number of sets wrong"
 

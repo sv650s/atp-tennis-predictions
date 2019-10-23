@@ -8,6 +8,9 @@ import os
 import re
 import json
 from datetime import datetime
+import util.jupyter_util as ju
+import dill
+import numpy as np
 
 
 log = logging.getLogger(__name__)
@@ -38,11 +41,12 @@ class ModelWrapper(object):
     CONFUSION_MATRIX = "confusion_matrix"
     CLASSIFICATION_REPORT = "classification_report"
     FIT_TIME_MIN = "fit_time_min"
+    DATA_FILTER_FILE = "data_filter_file"
     PREDICT_TIME_MIN = "predict_time_min"
     TOTAL_TIME_MIN = "total_time_min"
 
-    @staticmethod
-    def get_model_wrapper_from_report(data: pd.DataFrame):
+    @classmethod
+    def get_model_wrapper_from_report(cls, data: pd.DataFrame, load_data: bool = False):
         """
         Gets a Model Wrapper object along with the original model object using a row from the report dataframe
 
@@ -58,11 +62,13 @@ class ModelWrapper(object):
 
         confusion matrix and classification reports will be converted back into their original dictionary representation
 
-        :param data: a row in the report data frame
+        :param data: a row in the report data frame with information to reconstruct the model
+        :param load_data: tells us whether to load the original data as we create the model. default False
+        :param data_filter: function used to filter columns when we load data. This will only be used if load_data is set to True
         :return: ModelWrapper object
         """
-        log.debug(type(data))
-        log.debug(data)
+        log.info(type(data))
+        log.info(data)
         assert len(data) == 1, f"data must of length 1 - got {len(data)}"
 
         # get these from the file name
@@ -78,6 +84,11 @@ class ModelWrapper(object):
         model_file = data[ModelWrapper.MODEL_FILE].values[0]
         predict_time_min = int(data[ModelWrapper.PREDICT_TIME_MIN].values[0])
         fit_time_min = int(data[ModelWrapper.FIT_TIME_MIN].values[0])
+        if data[ModelWrapper.DATA_FILTER_FILE].isna().values[0]:
+            data_filter_file = None
+        else:
+            data_filter_file = data[ModelWrapper.DATA_FILTER_FILE].values[0]
+
 
         log.debug(f'model_file {model_file}')
 
@@ -99,6 +110,17 @@ class ModelWrapper(object):
         mw.roc_auc_score = roc_auc_score
         mw.fit_time_min = fit_time_min
         mw.predict_time_min = predict_time_min
+
+        # load data filter
+        mw.data_filter_file = data_filter_file
+        log.info(f'data_filter_file {data_filter_file}')
+        log.info(f'data_filter_file type {type(data_filter_file)}')
+        if data_filter_file:
+            with open(data_filter_file, 'rb') as file:
+                mw.data_filter = dill.load(file)
+
+        if load_data:
+            mw.X_train, mw.X_test, mw.y_train, mw.y_test = ju.get_data(data_file, LABEL_COL, start_year, end_year, data_filter=mw.data_filter)
 
         return mw
 
@@ -133,7 +155,7 @@ class ModelWrapper(object):
 
     def __init__(self, model, description, data_file, start_year, end_year,
                  X_train = None, y_train = None, X_test = None, y_test = None, model_name = None,
-                model_file_format = None, model_dir = None, report_file = None):
+                model_file_format = None, model_dir = None, report_file = None, data_filter = None):
         """
         Creates a model wrapper object
         :param model: model binary file
@@ -141,10 +163,6 @@ class ModelWrapper(object):
         :param data_file: which data file was used to train the model
         :param start_year: start of year data was used to train model - inclusive ie, >=
         :param end_year: end of year data was used to train model - inclusive ie, <=
-        :param X_train: training features
-        :param y_train: training labels
-        :param X_test: test features
-        :param y_test: test labels
         :param model_name: name of model - ie, KNeighborClassifer
         :param model_file_format: file format used to pick the binary model
         :param model_dir: directory to save model file
@@ -161,6 +179,7 @@ class ModelWrapper(object):
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
+        self.data_filter = data_filter
 
         if not model_dir:
             self.model_dir = ModelWrapper.MODEL_DIR
@@ -171,8 +190,6 @@ class ModelWrapper(object):
         if not self.model_file_format:
             self.model_file_format = f'{self.start_year}-{self.end_year}-{description}.pkl'
 
-        # predictions
-        self.y_predict = None
         #  confusion matrix
         self.cm = None
         # classification report
@@ -188,6 +205,10 @@ class ModelWrapper(object):
         else:
             self.model_name = type(self.model).__name__
         self.model_file = f'{ModelWrapper.MODEL_DIR}/{self.model_name.lower()}-{self.model_file_format}'
+        if data_filter:
+            self.data_filter_file = f'{ModelWrapper.MODEL_DIR}/{self.model_name.lower()}-{self.model_file_format}-data_filter.pkl'
+        else:
+            self.data_filter_file = None
 
 
     def fit(self, X_train = None, y_train = None) -> pd.DataFrame:
@@ -208,6 +229,7 @@ class ModelWrapper(object):
         return self.y_predict
 
     def analyze(self):
+
         self.accuracy = accuracy_score(self.y_test, self.y_predict)
         print(f'Model Score: {accuracy_score(self.y_test, self.y_predict)}\n')
 
@@ -227,6 +249,8 @@ class ModelWrapper(object):
     def save(self):
         log.info(f'Saving model file: {self.model_file}')
         pickle.dump(self.model, open(self.model_file, 'wb'))
+        if self.data_filter:
+            dill.dump(self.data_filter, open(self.data_filter_file, 'wb'))
 
         d = {
             ModelWrapper.MODEL_NAME: [self.model_name, ],
@@ -242,6 +266,7 @@ class ModelWrapper(object):
             ModelWrapper.PREDICT_TIME_MIN: [self.predict_time_min, ],
             ModelWrapper.FIT_TIME_MIN: [self.fit_time_min, ],
             ModelWrapper.TOTAL_TIME_MIN: [self.fit_time_min + self.predict_time_min, ],
+            ModelWrapper.DATA_FILTER_FILE: [self.data_filter_file, ],
 
         }
 

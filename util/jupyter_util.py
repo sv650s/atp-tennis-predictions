@@ -45,7 +45,7 @@ def plot_2d(X_test: pd.DataFrame, y_predict):
 
 
 
-def get_data(filename: str, label_col: str, start_year: int, end_year: int, random_state = 1) -> (pd.DataFrame, pd.DataFrame):
+def get_data(filename: str, label_col: str, start_year: int, end_year: int, random_state = 1, data_filter = None) -> (pd.DataFrame, pd.DataFrame):
     """
     Gets the data file, filters out unwanted entries and then split into training and test sets
 
@@ -53,6 +53,8 @@ def get_data(filename: str, label_col: str, start_year: int, end_year: int, rand
     :param label_col: name of label column
     :param start_year: filter out entries before this year
     :param end_year: filter out entries after this year
+    :param random_state: seeds the random state for splitting train and test data
+    :param data_filter: function to filter out feature columns
     :return: X_train, X_test, y_train, y_test
     """
     log.info(f"loading {filename}")
@@ -61,7 +63,11 @@ def get_data(filename: str, label_col: str, start_year: int, end_year: int, rand
     features = features[(features.tourney_year >= start_year) & (features.tourney_year <= end_year)]
     labels = features[label_col].copy()
     features = features.drop([label_col], axis=1)
-    log.info(features.shape)
+    if data_filter:
+        log.info(f'Shape before filtering: {features.shape}')
+        features = data_filter(features)
+        log.info(f'Shape after filtering: {features.shape}')
+    log.info(f'Features shape: {features.shape}')
     return train_test_split(features, labels, random_state=random_state)
 
 
