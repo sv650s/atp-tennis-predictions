@@ -6,7 +6,7 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 
-def process_scores(scores: str):
+def process_scores(scores: str, idx = None):
     """
     Use this to parse out differnt parts of a match score.
     Will be using this for feature Engineering as input to predict match results

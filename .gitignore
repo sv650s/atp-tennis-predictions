@@ -5,4 +5,5 @@ datasets/
 models/
 __pycache__
 reports/test_report.csv
+*.nbconvert.ipynb
 

@@ -138,6 +138,13 @@ class Mapper(object):
 
         return tourney_labels
 
+    @staticmethod
+    def get_players_from_row(data: pd.Series):
+        """
+        Gets the player 1 id and player 2 id from row from feature file
+        :param data:
+        :return:
+        """
 
 
 
