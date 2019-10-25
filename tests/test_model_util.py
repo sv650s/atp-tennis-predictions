@@ -1,9 +1,12 @@
 import pytest
 import logging
+import util.model_util as mu
 from util.model_util import ModelWrapper
+from util.model_util import BaseDiffFilter, BaseRawFilter, OHEFilter, RAW_COLUMNS, DIFF_COLUMNS
 from sklearn.tree import DecisionTreeClassifier
 from util import jupyter_util as ju
 import os
+import re
 import pandas as pd
 import numpy as np
 
@@ -166,3 +169,150 @@ def test_save_load_model_with_filter(datadir, data_filter):
     assert loaded_mw.accuracy == accuracy, "accuracy does not match"
     assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
     assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"
+
+
+class TestColumnFilters(object):
+
+    @pytest.fixture()
+    def data_for_filters(self, datadir):
+        """
+        get our data file
+        :param self:
+        :param datadir:
+        :return:
+        """
+        return pd.read_csv(f'{datadir}/column_features_data.csv')
+
+    def compare_columns(self, left, right):
+
+        assert len(left)  == len(right), "list length should be the same"
+
+        # now do 2 way element wise comparison
+        diff_col = [col for col in left if col not in right]
+        assert len(diff_col) == 0, "there are extra columns in the generated list"
+        diff_col = [col for col in right if col not in left]
+        assert len(diff_col) == 0, "there are missing columns in the generated list"
+
+    def test_base_raw_filter(self, data_for_filters):
+        filter = BaseRawFilter(data_for_filters)
+        data = filter.get_data()
+        diff_col = [col for col in data.columns if col not in RAW_COLUMNS ]
+        assert len(diff_col) == 0, "there are extra columns in the generated list"
+        diff_col = [col for col in RAW_COLUMNS if col not in data.columns]
+        assert len(diff_col) == 0, "there are missing columns in the generated list"
+
+    def test_base_diff_filter(self, data_for_filters):
+        filter = BaseDiffFilter(data_for_filters)
+        data = filter.get_data()
+        diff_col = [col for col in data.columns if col not in DIFF_COLUMNS ]
+        assert len(diff_col) == 0, "there are extra columns in the generated list"
+        diff_col = [col for col in DIFF_COLUMNS if col not in data.columns]
+        assert len(diff_col) == 0, "there are missing columns in the generated list"
+
+    def test_ohe_filter(self, data_for_filters):
+        filter = OHEFilter(data_for_filters)
+        columns = filter.get_data().columns
+
+        assert len(columns) > 4000, "not enough columns"
+        assert len([col for col in columns if re.search(r'(p1|p2)_[\d]+', col)]) > 0, "player id's are missing"
+        assert len([col for col in columns if re.search(r'(p1|p2)_ioc_[\w]+', col)]) > 0, "player origins are missing"
+        assert len([col for col in columns if re.search(r'(p1|p2)_hand_[\w]+', col)]) > 0, "player hand are missing"
+        assert len([col for col in columns if re.search(r'tourney_id_', col)]) > 0, "tourney id's are missing"
+        assert len([col for col in columns if re.search(r'best_of_', col)]) > 0, "tourney id's are missing"
+        assert len([col for col in columns if re.search(r'surface_', col)]) > 0, "tourney id's are missing"
+
+
+    def test_stats_diff_filter(self, data_for_filters):
+        filter = mu.StatsDiffFilter(data_for_filters)
+        data = filter.get_data()
+
+        cols = ['p1_stats_1stin_avg_diff',
+                 'p1_stats_1stwon_avg_diff',
+                 'p1_stats_2ndwon_avg_diff',
+                 'p1_stats_ace_avg_diff',
+                 'p1_stats_bpfaced_avg_diff',
+                 'p1_stats_bpsaved_avg_diff',
+                 'p1_stats_df_avg_diff',
+                 'p1_stats_svgms_avg_diff',
+                 'p1_stats_svpt_avg_diff']
+
+        self.compare_columns(data.columns, cols)
+
+    def test_stats_raw_filter(self, data_for_filters):
+
+        target = ['p1_stats_1stin_avg',
+                             'p1_stats_1stwon_avg',
+                             'p1_stats_2ndwon_avg',
+                             'p1_stats_ace_avg',
+                             'p1_stats_bpfaced_avg',
+                             'p1_stats_bpsaved_avg',
+                             'p1_stats_df_avg',
+                             'p1_stats_svgms_avg',
+                             'p1_stats_svpt_avg',
+                             'p2_stats_1stin_avg',
+                             'p2_stats_1stwon_avg',
+                             'p2_stats_2ndwon_avg',
+                             'p2_stats_ace_avg',
+                             'p2_stats_bpfaced_avg',
+                             'p2_stats_bpsaved_avg',
+                             'p2_stats_df_avg',
+                             'p2_stats_svgms_avg',
+                             'p2_stats_svpt_avg']
+
+        filter = mu.StatsRawFilter(data_for_filters)
+        cols = filter.get_columns()
+
+        self.compare_columns(cols, target)
+
+    def test_stats5_diff_filter(self, data_for_filters):
+
+        filter = mu.Stats5DiffFilter(data_for_filters)
+        cols = filter.get_columns()
+
+        assert "percentage" not in cols, "columns should not contain percentage"
+        assert len([col for col in cols if re.search("stats5", col)]) == len(cols), \
+            "all columns should have stats5 in the name"
+
+    def test_default_column_filter(self, data_for_filters):
+        default_filter = mu.DefaultColumnFilter(data_for_filters)
+        default_cols = default_filter.get_columns()
+
+        diff_filter = mu.BaseDiffFilter(data_for_filters)
+        diff_cols = diff_filter.get_columns()
+
+        ohe_filter = mu.OHEFilter(data_for_filters)
+        ohe_cols = ohe_filter.get_columns()
+
+        assert len(default_cols) == len(diff_cols) + len(ohe_cols), "default columns should be sum of diff and ohe"
+
+    def test_base_rank_diff_filter(self, data_for_filters):
+        filter = mu.BaseRankDiffFilter(data_for_filters)
+        cols = filter.get_columns()
+
+        assert len(cols) == 1, "should return only 1 column"
+        assert "seed_diff" in cols, "should have seed_diff"
+
+
+class TestWeightCalculators(object):
+
+    def test_year_weight_calculator(self):
+        year_df = pd.DataFrame({"tourney_year": [1998, 2005, 2004, 2013, 2018] })
+        weight_calculator = mu.YearWeightCalculator(year_df)
+        weights = weight_calculator.get_weights()
+
+        assert weights[0] == 1, f"weight for {year_df.tourney_year[0]} is incorrect"
+        assert weights[1] == 8, f"weight for {year_df.tourney_year[1]} is incorrect"
+        assert weights[2] == 7, f"weight for {year_df.tourney_year[2]} is incorrect"
+        assert weights[3] == 16, f"weight for {year_df.tourney_year[3]} is incorrect"
+        assert weights[4] == 21, f"weight for {year_df.tourney_year[4]} is incorrect"
+
+    def test_year_bin_weight_calculator(self):
+        year_df = pd.DataFrame({"tourney_year": [2014, 2016, 2015, 2017, 2018] })
+        weight_calculator = mu.YearBinWeightCalculator(year_df, 5)
+        weights = weight_calculator.get_weights()
+
+        assert weights[0] == 1, f"weight for {year_df.tourney_year[0]} is incorrect"
+        assert weights[1] == 3, f"weight for {year_df.tourney_year[1]} is incorrect"
+        assert weights[2] == 2, f"weight for {year_df.tourney_year[2]} is incorrect"
+        assert weights[3] == 4, f"weight for {year_df.tourney_year[3]} is incorrect"
+        assert weights[4] == 5, f"weight for {year_df.tourney_year[4]} is incorrect"

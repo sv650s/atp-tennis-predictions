@@ -5,6 +5,7 @@ channels:
     - anaconda
     - derickl
 dependencies:
+    - dill
     - eli5
     - numpy
     - jupyter

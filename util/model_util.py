@@ -23,6 +23,167 @@ N_JOBS = 4
 MAX_ITER = 100
 
 
+DIFF_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
+                  "age_diff", "ht_diff", "seed_diff", "rank_diff",
+                  ]
+RAW_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
+                   "p1_age", "p1_ht", "p1_rank", "p1_seed",
+                   "p2_age", "p2_ht", "p2_rank", "p2_seed",
+                ]
+
+STATS_RAW_COLUMNS = ['p1_stats_1stin_avg',
+ 'p1_stats_1stwon_avg',
+ 'p1_stats_2ndwon_avg',
+ 'p1_stats_ace_avg',
+ 'p1_stats_bpfaced_avg',
+ 'p1_stats_bpsaved_avg',
+ 'p1_stats_df_avg',
+ 'p1_stats_svgms_avg',
+ 'p1_stats_svpt_avg',
+ 'p2_stats_1stin_avg',
+ 'p2_stats_1stwon_avg',
+ 'p2_stats_2ndwon_avg',
+ 'p2_stats_ace_avg',
+ 'p2_stats_bpfaced_avg',
+ 'p2_stats_bpsaved_avg',
+ 'p2_stats_df_avg',
+ 'p2_stats_svgms_avg',
+ 'p2_stats_svpt_avg']
+
+
+class WeightCalculator(object):
+
+    def __init__(self, features):
+        self.features = features
+
+    def get_weights(self) -> pd.DataFrame:
+        raise Exception("Not yet implemented")
+
+
+class YearWeightCalculator(WeightCalculator):
+    """
+    Creates weights based on the tourney_year of the sample
+    Earliest year will have weight of 1, year after that will have weight of 2, etc
+    """
+
+    def get_weights(self) -> pd.DataFrame:
+        min_year = self.features.tourney_year.min() - 1
+        weights = self.features.tourney_year - min_year
+        return weights
+
+class YearBinWeightCalculator(WeightCalculator):
+    """
+    Splits data into equally sized bins and assign weights based on tourney_year
+    The later the year, the higher the weight
+    """
+
+    def __init__(self, features, bins):
+        super().__init__(features)
+        self.bins = bins
+
+    def get_weights(self) -> pd.DataFrame:
+        weights = pd.cut(self.features.tourney_year, self.bins, labels=np.arange(1, self.bins+1)).tolist()
+        return weights
+
+
+
+class ColumnFilter(object):
+    """
+    Base class for column filtering
+    """
+    def __init__(self, data: pd.DataFrame):
+        self.data = data
+
+    def get_columns(self):
+        raise Exception("Not yet implemented")
+
+    def get_data(self):
+        filtered_data = self.data[self.get_columns()]
+        return filtered_data
+
+class OHEFilter(ColumnFilter):
+    """
+    gets all one hot encoded columns
+    """
+    def get_columns(self):
+        return [col for col in self.data.columns if
+                re.search(r'(p1|p2)_[\d]+', col)
+                or re.search(r'(p1|p2)_ioc_.+', col)
+                or re.search(r'tourney_id_.+', col)
+                or re.search(r'(p1|p2)_hand_[\w]{1}', col)
+                or re.search(r'best_of_', col)
+                or re.search(r'surface_[\w]+', col)
+                ]
+
+
+class BaseRawFilter(ColumnFilter):
+    """
+    Filters out base columns for our data
+    """
+    def get_columns(self):
+        return RAW_COLUMNS
+
+
+class BaseDiffFilter(ColumnFilter):
+    def get_columns(self):
+        return DIFF_COLUMNS
+
+
+
+
+class BaseRankDiffFilter(ColumnFilter):
+    """
+    returns only seed_diff as a feature - will be using this to establish our baseline for our models
+    """
+    def get_columns(self):
+        return ["seed_diff"]
+
+class DefaultColumnFilter(ColumnFilter):
+    """
+    Base data filter - our base columns are basic player diff columns + OHE columns
+    """
+
+    def get_columns(self):
+        diff_filter = BaseDiffFilter(self.data)
+        diff_col = diff_filter.get_columns()
+
+        ohe_filter = OHEFilter(self.data)
+        ohe_col = ohe_filter.get_columns()
+
+        return diff_col + ohe_col
+
+
+class StatsRawFilter(ColumnFilter):
+
+    def get_columns(self):
+        return [col for col in self.data.columns if  re.search(r"stats_.+avg$", col) and not re.search("percentage", col)]
+
+
+class StatsDiffFilter(ColumnFilter):
+    """
+    all time player average stats
+    """
+    def get_columns(self):
+        return [col for col in self.data.columns if  re.search(r"stats_.+diff", col) and not re.search("percentage", col)]
+
+# class Stats5DiffFilter(ColumnFilter):
+#     def get_columns(self):
+
+
+class Stats5DiffFilter(ColumnFilter):
+    """
+    gets stats5 diff columns
+    """
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search("stats5.*diff", col) and not re.search("percentage", col)]
+
+
+class History5PercentageDiffFilter(ColumnFilter):
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"history5.+percent.+diff", col)]
+
+
+
 class ModelWrapper(object):
 
     # default values
@@ -156,6 +317,7 @@ class ModelWrapper(object):
     def __init__(self, model, description, data_file, start_year, end_year,
                  X_train = None, y_train = None, X_test = None, y_test = None, model_name = None,
                 model_file_format = None, model_dir = None, report_file = None, data_filter = None):
+        # TODO: remove x_test, y_test, etc
         """
         Creates a model wrapper object
         :param model: model binary file
@@ -199,6 +361,7 @@ class ModelWrapper(object):
         self.roc_auc_score = None
         self.fit_time_min = 0
         self.predict_time_min = 0
+        self.sample_weights = None
 
         if model_name:
             self.model_name = model_name
@@ -211,24 +374,31 @@ class ModelWrapper(object):
             self.data_filter_file = None
 
 
-    def fit(self, X_train = None, y_train = None) -> pd.DataFrame:
+    def fit(self, X_train = None, y_train = None, sample_weights = None) -> pd.DataFrame:
         start_time = datetime.now()
         if X_train and y_train:
             self.X_train = X_train
             self.y_train = y_train
-        self.model = self.model.fit(self.X_train, self.y_train)
+        self.sample_weights = sample_weights
+        self.model = self.model.fit(self.X_train, self.y_train, self.sample_weights)
         end_time = datetime.now()
         self.fit_time_min = divmod((end_time - start_time).total_seconds(), 60)[0]
         return self
 
-    def predict(self):
+    def predict(self, X = None):
+        if X:
+            self.X_test = X
         start_time = datetime.now()
         self.y_predict = self.model.predict(self.X_test)
         end_time = datetime.now()
         self.predict_time_min = divmod((end_time - start_time).total_seconds(), 60)[0]
         return self.y_predict
 
-    def analyze(self):
+    def analyze(self, y_test = None):
+        # TODO: make y_test required after refactor
+
+        if y_test:
+            self.y_test = y_test
 
         self.accuracy = accuracy_score(self.y_test, self.y_predict)
         print(f'Model Score: {accuracy_score(self.y_test, self.y_predict)}\n')
