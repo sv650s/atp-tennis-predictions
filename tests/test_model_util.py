@@ -269,9 +269,30 @@ class TestColumnFilters(object):
         filter = mu.Stats5DiffFilter(data_for_filters)
         cols = filter.get_columns()
 
-        assert "percentage" not in cols, "columns should not contain percentage"
+        assert len([col for col in cols if re.search("percentage", col)]) == 0, "columns should not contain percentage"
         assert len([col for col in cols if re.search("stats5", col)]) == len(cols), \
             "all columns should have stats5 in the name"
+
+    def test_history5_diff_filter(self, data_for_filters):
+
+        filter = mu.History5PercentageDiffFilter(data_for_filters)
+        cols = filter.get_columns()
+
+        assert len(cols) == 3, " there should be 3 columns"
+        assert len([col for col in cols if not re.search(r"percentage.+diff", col)]) == 0, "columns should contain percentage"
+        assert len([col for col in cols if re.search("history5", col)]) == len(cols), \
+            "all columns should have stats5 in the name"
+
+    def test_matchup5_diff_filter(self, data_for_filters):
+
+        filter = mu.Matchup5PercentageDiffFilter(data_for_filters)
+        cols = filter.get_columns()
+
+        assert len(cols) == 3, " there should be 3 columns"
+        assert len([col for col in cols if not re.search(r"percentage.+diff", col)]) == 0, "columns should contain percentage"
+        assert len([col for col in cols if re.search("matchup5", col)]) == len(cols), \
+            "all columns should have stats5 in the name"
+
 
     def test_default_column_filter(self, data_for_filters):
         default_filter = mu.DefaultColumnFilter(data_for_filters)
@@ -295,9 +316,9 @@ class TestColumnFilters(object):
 
 class TestWeightCalculators(object):
 
-    def test_year_weight_calculator(self):
+    def test_interval_based_weight_calculator(self):
         year_df = pd.DataFrame({"tourney_year": [1998, 2005, 2004, 2013, 2018] })
-        weight_calculator = mu.YearWeightCalculator(year_df)
+        weight_calculator = mu.IntervalBasedWeightCalculator(year_df, "tourney_year", 1)
         weights = weight_calculator.get_weights()
 
         assert weights[0] == 1, f"weight for {year_df.tourney_year[0]} is incorrect"
@@ -306,9 +327,9 @@ class TestWeightCalculators(object):
         assert weights[3] == 16, f"weight for {year_df.tourney_year[3]} is incorrect"
         assert weights[4] == 21, f"weight for {year_df.tourney_year[4]} is incorrect"
 
-    def test_year_bin_weight_calculator(self):
+    def test_bin_based_weight_calculator(self):
         year_df = pd.DataFrame({"tourney_year": [2014, 2016, 2015, 2017, 2018] })
-        weight_calculator = mu.YearBinWeightCalculator(year_df, 5)
+        weight_calculator = mu.BinBasedWeightCalculator(year_df, "tourney_year", 5)
         weights = weight_calculator.get_weights()
 
         assert weights[0] == 1, f"weight for {year_df.tourney_year[0]} is incorrect"

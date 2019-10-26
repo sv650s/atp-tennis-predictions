@@ -53,38 +53,54 @@ STATS_RAW_COLUMNS = ['p1_stats_1stin_avg',
 
 class WeightCalculator(object):
 
-    def __init__(self, features):
+    def __init__(self, features, column):
         self.features = features
+        self.column = column
 
-    def get_weights(self) -> pd.DataFrame:
+    def calculate_bins(self) -> int:
         raise Exception("Not yet implemented")
 
-
-class YearWeightCalculator(WeightCalculator):
-    """
-    Creates weights based on the tourney_year of the sample
-    Earliest year will have weight of 1, year after that will have weight of 2, etc
-    """
-
     def get_weights(self) -> pd.DataFrame:
-        min_year = self.features.tourney_year.min() - 1
-        weights = self.features.tourney_year - min_year
+        bins = max(1, self.calculate_bins())
+        weights = pd.cut(self.features[self.column], bins, labels=np.arange(1, bins+1)).tolist()
         return weights
 
-class YearBinWeightCalculator(WeightCalculator):
+
+
+class BinBasedWeightCalculator(WeightCalculator):
     """
     Splits data into equally sized bins and assign weights based on tourney_year
     The later the year, the higher the weight
     """
 
-    def __init__(self, features, bins):
-        super().__init__(features)
+    def __init__(self, features, column, bins):
+        super().__init__(features, column)
         self.bins = bins
 
-    def get_weights(self) -> pd.DataFrame:
-        weights = pd.cut(self.features.tourney_year, self.bins, labels=np.arange(1, self.bins+1)).tolist()
-        return weights
+    def calculate_bins(self):
+        self.bins = max(1, self.bins)
+        log.info(f'bins: {self.bins}')
+        return self.bins
 
+class IntervalBasedWeightCalculator(WeightCalculator):
+    """
+    Splits data into equally sized bins and assign weights based on interval specified
+    Larger the column value, the greater the weight will be
+    """
+
+    def __init__(self, features, column, years):
+        super().__init__(features, column)
+        self.years = years
+
+    def calculate_bins(self) -> pd.DataFrame:
+        """
+        Number of years to create bins from
+        :param years:
+        :return:
+        """
+        bins, _ = divmod(self.features[self.column].max() - self.features[self.column].min() + 1, self.years)
+        bins = max(1, bins)
+        return bins
 
 
 class ColumnFilter(object):
@@ -179,8 +195,26 @@ class Stats5DiffFilter(ColumnFilter):
 
 
 class History5PercentageDiffFilter(ColumnFilter):
+    """
+    get history percentage_diff columns for last 5 matches
+    """
     def get_columns(self):
         return [col for col in self.data.columns if re.search(r"history5.+percent.+diff", col)]
+
+class History5DiffFilter(ColumnFilter):
+    """
+    get history percentage_diff columns for last 5 matches
+    """
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"history5.+diff", col)]
+
+
+class Matchup5PercentageDiffFilter(ColumnFilter):
+    """
+    get matchup percentage_diff columns for last 5 matches
+    """
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"matchup5.+percent.+diff", col)]
 
 
 
@@ -376,7 +410,7 @@ class ModelWrapper(object):
 
     def fit(self, X_train = None, y_train = None, sample_weights = None) -> pd.DataFrame:
         start_time = datetime.now()
-        if X_train and y_train:
+        if X_train is not None and y_train is not None:
             self.X_train = X_train
             self.y_train = y_train
         self.sample_weights = sample_weights
@@ -386,7 +420,7 @@ class ModelWrapper(object):
         return self
 
     def predict(self, X = None):
-        if X:
+        if X is not None:
             self.X_test = X
         start_time = datetime.now()
         self.y_predict = self.model.predict(self.X_test)
@@ -397,7 +431,7 @@ class ModelWrapper(object):
     def analyze(self, y_test = None):
         # TODO: make y_test required after refactor
 
-        if y_test:
+        if y_test is not None:
             self.y_test = y_test
 
         self.accuracy = accuracy_score(self.y_test, self.y_predict)
@@ -446,7 +480,7 @@ class ModelWrapper(object):
         else:
             report = pd.DataFrame(columns=list(d.keys()))
 
-        report = report.append(pd.DataFrame(d), ignore_index=True)
+        report = report.append(pd.DataFrame(d), ignore_index=True, sort=False)
         log.debug(f'report dataframe:\n{report}')
         print(f'Saving report: {self.report_file}')
         report.to_csv(self.report_file, index=False)

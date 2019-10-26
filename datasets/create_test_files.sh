@@ -27,7 +27,7 @@ tail -${lines} $in_file >> $out_file
     cd ../notebooks
     jupyter nbconvert --to notebook --ExecutePreprocessor.timeout=1200 --execute 3.0.0-classification_feature_engineering.ipynb
 
-    jupyter nbconvert --to notebook --ExecutePreprocessor.timeout=1200 --execute 3.1.0-classification_feature_engineering-history5-matchup5.ipynb
+    jupyter nbconvert --to notebook --ExecutePreprocessor.timeout=1200 --execute 3.1.0-classification_feature_engineering-history-matchup-stats.ipynb
 
     jupyter nbconvert --to notebook --ExecutePreprocessor.timeout=1200 --execute 3.0.1-classification_feature_engineering-symmetric.ipynb
 
