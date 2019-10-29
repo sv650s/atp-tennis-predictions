@@ -1,6 +1,7 @@
 import pytest
 import logging
 import pandas as pd
+import util.model_util as mu
 import util.jupyter_util as ju
 import os
 
@@ -48,24 +49,8 @@ def features_file_ohe(datadir):
     return f'{datadir}/features_ohe.csv'
 
 @pytest.fixture
-def features_file(datadir):
+def features_file(self, datadir):
     return f'{datadir}/features.csv'
-
-
-def test_get_data(features_file):
-    """
-    load data from file and test to see if the date range query for our dataset is running correctly
-    :return:
-    """
-    start_year = 1998
-    end_year = 2018
-
-    # X_train, X_test, y_train, y_test = ju.get_data(DATAFILE, LABEL_COL, start_year, end_year)
-    X_train, X_test, y_train, y_test = ju.get_data(features_file, LABEL_COL, start_year, end_year)
-    df = X_train.append(X_test, ignore_index=True)
-    assert len(df) == 3, "number of rows returned not correct"
-    assert df["tourney_year"].min() == start_year, "start date not working"
-    assert df["tourney_year"].max() == end_year, "end date not working"
 
 
 def test_get_tourney_data(features_file):

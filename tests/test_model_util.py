@@ -4,7 +4,6 @@ import util.model_util as mu
 from util.model_util import ModelWrapper
 from util.model_util import BaseDiffFilter, BaseRawFilter, OHEFilter, RAW_COLUMNS, DIFF_COLUMNS
 from sklearn.tree import DecisionTreeClassifier
-from util import jupyter_util as ju
 import os
 import re
 import pandas as pd
@@ -20,168 +19,203 @@ DESCRIPTION = "diff-ohe-history_test-matchup_test"
 START_YEAR = 1980
 END_YEAR = 2018
 MODEL_TEMPLATE_NAME = f'{START_YEAR}-{END_YEAR}-{DESCRIPTION}.pkl'
-MODEL_NAME = "modelname"
-
-
-
-def test_get_model_file():
-    """
-
-    :return:
-    """
-
-    model_file_format = MODEL_TEMPLATE_NAME
-    ModelWrapper.model_file_format = model_file_format
-    model_name = MODEL_NAME
-    filename = ModelWrapper._get_model_filename(model_name)
-    assert filename == f"{ModelWrapper.MODEL_DIR}/{model_name}-{model_file_format}", "filename mismatch"
-
-
-def test_get_info_from_model_filename():
-    """
-    Test to make sure we can parse the model dir and the description correctly
-    :return:
-    """
-
-    model_dir, description = ModelWrapper._get_info_from_model_filename(f'{MODEL_DIR}/{MODEL_NAME}-{MODEL_TEMPLATE_NAME}')
-    assert model_dir == MODEL_DIR, "mismatched model_dir"
-    assert description == DESCRIPTION, "mismatched description"
-
-
-def test_save_load_model(datadir):
-    """
-    Create a model and train then save the model and load it back to make sure we are getting the same thing
-    as before
-
-    :param datadir: directory where files are
-    :return:
-    """
-    # save our files to our test directory
-    ModelWrapper.REPORT_FILE = f'{datadir}/summary.csv'
-    ModelWrapper.MODEL_DIR = f'{datadir}'
-
-    if os.path.exists(ModelWrapper.REPORT_FILE):
-        os.remove(ModelWrapper.REPORT_FILE)
-
-    feature_file = f'{datadir}/features.csv'
-    X_train, X_test, y_train, y_test = ju.get_data(feature_file, "p1_winner", START_YEAR, END_YEAR)
-    mw = ModelWrapper(DecisionTreeClassifier(random_state=1),
-                      description=DESCRIPTION,
-                      data_file=feature_file,
-                      start_year=START_YEAR,
-                      end_year=END_YEAR,
-                      X_train=X_train,
-                      y_train=y_train,
-                      X_test=X_test,
-                      y_test=y_test).fit()
-    y_predict_dt = mw.predict()
-    log.debug(f'y_predict_dt {y_predict_dt}')
-    mw.analyze()
-
-    accuracy = mw.accuracy
-    roc_auc_score = mw.roc_auc_score
-
-    mw.save()
-
-    # load our model back
-    assert os.path.exists(mw.report_file), f"{mw.report_file} does not exist"
-    log.info(f"loading report file: {mw.report_file}")
-    report = pd.read_csv(mw.report_file)
-    assert len(report) == 1, "report should have 1 row"
-
-    log.info(f'report type: {type(report)}')
-    log.info(report.head())
-    log.info(f'Selected row: {report[report.description == DESCRIPTION]}')
-    loaded_mw = ModelWrapper.get_model_wrapper_from_report(report[report.description == DESCRIPTION])
-    loaded_mw.X_train = X_train
-    loaded_mw.y_train = y_train
-    loaded_mw.X_test = X_test
-    loaded_mw.y_test = y_test
-
-    y_predict_loaded = loaded_mw.predict()
-    log.debug(f'y_predict_loaded {y_predict_loaded}')
-
-    assert loaded_mw.accuracy == accuracy, "accuracy does not match"
-    assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
-    assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"
-
-
-def filter_data(data):
-    data = data.drop(["tourney_level_label"], axis=1)
-    return data
-
+MODEL_NAME = "testmodelname"
+LABEL_COL = "p1_winner"
 
 
 @pytest.fixture()
-def data_filter():
-    return filter_data
-
-def test_save_load_model_with_filter(datadir, data_filter):
+def all_columns_file(datadir):
     """
-    Create a model and train then save the model and load it back to make sure we are getting the same thing
-    as before
+    sample data file that includes all of our data
 
-    :param datadir: directory where files are
+    best way to create this file is to take the first 10 lines from our actual data file
+    :param self:
+    :param datadir:
     :return:
     """
-    # save our files to our test directory
-    ModelWrapper.REPORT_FILE = f'{datadir}/summary.csv'
-    ModelWrapper.MODEL_DIR = f'{datadir}'
+    return f'{datadir}/all_columns_feature_data.csv'
 
-    if os.path.exists(ModelWrapper.REPORT_FILE):
-        os.remove(ModelWrapper.REPORT_FILE)
+@pytest.fixture()
+def all_columns_df(datadir, all_columns_file):
+    """
+    gets the DF from test file with all columns
+    :param datadir:
+    :param raw_diff_ohe_history_matchup_stats_file:
+    :return:
+    """
+    return pd.read_csv(all_columns_file)
 
-    feature_file = f'{datadir}/features.csv'
-    X_train, X_test, y_train, y_test = ju.get_data(feature_file, "p1_winner", START_YEAR, END_YEAR, data_filter= data_filter)
-    mw = ModelWrapper(DecisionTreeClassifier(random_state=1),
-                      description=DESCRIPTION,
-                      data_file=feature_file,
-                      start_year=START_YEAR,
-                      end_year=END_YEAR,
-                      X_train=X_train,
-                      y_train=y_train,
-                      X_test=X_test,
-                      y_test=y_test,
-                      data_filter=data_filter).fit()
-    y_predict_dt = mw.predict()
-    log.debug(f'y_predict_dt {y_predict_dt}')
-    mw.analyze()
+# @pytest.fixture()
+# def raw_diff_ohe_data(datadir):
+#     """
+#     sample data file that includes raw player stats, diff player, ohe nominal features
+#     :param self:
+#     :param datadir:
+#     :return:
+#     """
+#     return pd.read_csv(f'{datadir}/all_columns_feature_data.csv')
 
-    accuracy = mw.accuracy
-    roc_auc_score = mw.roc_auc_score
+@pytest.fixture
+def date_range_file(datadir):
+    """
 
-    mw.save()
-
-    # load our model back
-    report = pd.read_csv(ModelWrapper.REPORT_FILE)
-    assert len(report) == 1, "report should have 1 row"
+    :param datadir:
+    :return:
+    """
+    return f'{datadir}/test_date_range_data.csv'
 
 
-    loaded_mw = ModelWrapper.get_model_wrapper_from_report(report[report.description == DESCRIPTION], load_data = True)
-    # loaded_mw.X_train = X_train
-    # loaded_mw.y_train = y_train
-    # loaded_mw.X_test = X_test
-    # loaded_mw.y_test = y_test
+class TestModelWrapper(object):
 
-    y_predict_loaded = loaded_mw.predict()
-    log.debug(f'y_predict_loaded {y_predict_loaded}')
+    def test_get_date_range(self, date_range_file):
+        """
+        load data from file and test to see if the date range query for our dataset is running correctly
+        :return:
+        """
+        start_year = 1998
+        end_year = 2018
 
-    assert loaded_mw.accuracy == accuracy, "accuracy does not match"
-    assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
-    assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"
+        # X_train, X_test, y_train, y_test = ju.get_data(DATAFILE, LABEL_COL, start_year, end_year)
+        X_train, X_test, y_train, y_test = ModelWrapper.get_data(date_range_file, LABEL_COL, start_year, end_year)
+        df = X_train.append(X_test, ignore_index=True)
+        assert len(df) == 3, "number of rows returned not correct"
+        assert df["tourney_year"].min() == start_year, "start date not working"
+        assert df["tourney_year"].max() == end_year, "end date not working"
+
+
+    def test_get_model_file(self):
+        """
+
+        :return:
+        """
+
+        model_file_format = MODEL_TEMPLATE_NAME
+        ModelWrapper.model_file_format = model_file_format
+        model_name = MODEL_NAME
+        filename = ModelWrapper._get_model_filename(model_name)
+        assert filename == f"{ModelWrapper.MODEL_DIR}/{model_name}-{model_file_format}", "filename mismatch"
+
+
+    def test_get_info_from_model_filename(self):
+        """
+        Test to make sure we can parse the model dir and the description correctly
+        :return:
+        """
+
+        model_dir, description = ModelWrapper._get_info_from_model_filename(f'{MODEL_DIR}/{MODEL_NAME}-{MODEL_TEMPLATE_NAME}')
+        assert model_dir == MODEL_DIR, "mismatched model_dir"
+        assert description == DESCRIPTION, "mismatched description"
+
+
+    def test_save_load_model(self, datadir, all_columns_file):
+        """
+        Create a model and train then save the model and load it back to make sure we are getting the same thing
+        as before
+
+        :param datadir: directory where files are
+        :return:
+        """
+        # save our files to our test directory
+        ModelWrapper.REPORT_FILE = f'{datadir}/summary.csv'
+        ModelWrapper.MODEL_DIR = f'{datadir}'
+
+        if os.path.exists(ModelWrapper.REPORT_FILE):
+            os.remove(ModelWrapper.REPORT_FILE)
+
+        # feature_file = f'{datadir}/all_columns_feature_data.csv'
+        X_train, X_test, y_train, y_test = ModelWrapper.get_data(all_columns_file, "p1_winner", START_YEAR, END_YEAR)
+        mw = ModelWrapper(DecisionTreeClassifier(random_state=1),
+                          description=DESCRIPTION,
+                          data_file=all_columns_file,
+                          start_year=START_YEAR,
+                          end_year=END_YEAR
+                          ).fit(X_train, y_train)
+        y_predict_dt = mw.predict(X_test)
+        log.debug(f'y_predict_dt {y_predict_dt}')
+        mw.analyze(y_test)
+
+        accuracy = mw.accuracy
+        roc_auc_score = mw.roc_auc_score
+
+        mw.save()
+
+        # load our model back
+        assert os.path.exists(mw.report_file), f"{mw.report_file} does not exist"
+        log.info(f"loading report file: {mw.report_file}")
+        report = pd.read_csv(mw.report_file)
+        assert len(report) == 1, "report should have 1 row"
+
+        log.info(f'report type: {type(report)}')
+        log.info(report.head())
+        log.info(f'Selected row: {report[report.description == DESCRIPTION]}')
+        loaded_mw = ModelWrapper.get_model_wrapper_from_report(report[report.description == DESCRIPTION])
+        loaded_mw.X_train = X_train
+        loaded_mw.y_train = y_train
+        loaded_mw.X_test = X_test
+        loaded_mw.y_test = y_test
+
+        y_predict_loaded = loaded_mw.predict()
+        log.debug(f'y_predict_loaded {y_predict_loaded}')
+
+        assert loaded_mw.accuracy == accuracy, "accuracy does not match"
+        assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
+        assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"
+
+
+    def test_save_load_model_with_filter(self, datadir, all_columns_file):
+        """
+        Create a model and train then save the model and load it back to make sure we are getting the same thing
+        as before
+
+        :param datadir: directory where files are
+        :return:
+        """
+        # save our files to our test directory
+        ModelWrapper.REPORT_FILE = f'{datadir}/summary.csv'
+        ModelWrapper.MODEL_DIR = f'{datadir}'
+        data_filter = ["util.model_util.BaseRawFilter"]
+
+        if os.path.exists(ModelWrapper.REPORT_FILE):
+            os.remove(ModelWrapper.REPORT_FILE)
+
+        # feature_file = f'{datadir}/all_columns_feature_data.csv'
+        X_train, X_test, y_train, y_test = ModelWrapper.get_data(all_columns_file, "p1_winner", START_YEAR, END_YEAR, column_filters= data_filter)
+        mw = ModelWrapper(DecisionTreeClassifier(random_state=1),
+                          description=DESCRIPTION,
+                          data_file=all_columns_file,
+                          start_year=START_YEAR,
+                          end_year=END_YEAR,
+                          column_filters=data_filter).fit(X_train, y_train)
+        y_predict_dt = mw.predict(X_test)
+        log.info(f'y_predict_dt {y_predict_dt}')
+        mw.analyze(y_test)
+
+        accuracy = mw.accuracy
+        roc_auc_score = mw.roc_auc_score
+
+        mw.save()
+
+        # load our model back
+        report = pd.read_csv(ModelWrapper.REPORT_FILE)
+        assert len(report) == 1, "report should have 1 row"
+
+
+        loaded_mw = ModelWrapper.get_model_wrapper_from_report(report[report.description == DESCRIPTION], load_data = True)
+        # loaded_mw.X_train = X_train
+        # loaded_mw.y_train = y_train
+        # loaded_mw.X_test = X_test
+        # loaded_mw.y_test = y_test
+
+        y_predict_loaded = loaded_mw.predict()
+        log.debug(f'y_predict_loaded {y_predict_loaded}')
+
+        assert loaded_mw.accuracy == accuracy, "accuracy does not match"
+        assert loaded_mw.roc_auc_score == roc_auc_score, "roc/auc score does not match"
+        assert (y_predict_dt == y_predict_loaded).all(), "predictions don't match"
 
 
 class TestColumnFilters(object):
 
-    @pytest.fixture()
-    def data_for_filters(self, datadir):
-        """
-        get our data file
-        :param self:
-        :param datadir:
-        :return:
-        """
-        return pd.read_csv(f'{datadir}/column_features_data.csv')
 
     def compare_columns(self, left, right):
 
@@ -193,27 +227,27 @@ class TestColumnFilters(object):
         diff_col = [col for col in right if col not in left]
         assert len(diff_col) == 0, "there are missing columns in the generated list"
 
-    def test_base_raw_filter(self, data_for_filters):
-        filter = BaseRawFilter(data_for_filters)
+    def test_base_raw_filter(self, all_columns_df):
+        filter = BaseRawFilter(all_columns_df)
         data = filter.get_data()
         diff_col = [col for col in data.columns if col not in RAW_COLUMNS ]
         assert len(diff_col) == 0, "there are extra columns in the generated list"
         diff_col = [col for col in RAW_COLUMNS if col not in data.columns]
         assert len(diff_col) == 0, "there are missing columns in the generated list"
 
-    def test_base_diff_filter(self, data_for_filters):
-        filter = BaseDiffFilter(data_for_filters)
+    def test_base_diff_filter(self, all_columns_df):
+        filter = BaseDiffFilter(all_columns_df)
         data = filter.get_data()
         diff_col = [col for col in data.columns if col not in DIFF_COLUMNS ]
         assert len(diff_col) == 0, "there are extra columns in the generated list"
         diff_col = [col for col in DIFF_COLUMNS if col not in data.columns]
         assert len(diff_col) == 0, "there are missing columns in the generated list"
 
-    def test_ohe_filter(self, data_for_filters):
-        filter = OHEFilter(data_for_filters)
+    def test_ohe_filter(self, all_columns_df):
+        filter = OHEFilter(all_columns_df)
         columns = filter.get_data().columns
 
-        assert len(columns) > 4000, "not enough columns"
+        assert len(columns) > 200, "not enough columns"
         assert len([col for col in columns if re.search(r'(p1|p2)_[\d]+', col)]) > 0, "player id's are missing"
         assert len([col for col in columns if re.search(r'(p1|p2)_ioc_[\w]+', col)]) > 0, "player origins are missing"
         assert len([col for col in columns if re.search(r'(p1|p2)_hand_[\w]+', col)]) > 0, "player hand are missing"
@@ -222,8 +256,8 @@ class TestColumnFilters(object):
         assert len([col for col in columns if re.search(r'surface_', col)]) > 0, "tourney id's are missing"
 
 
-    def test_stats_diff_filter(self, data_for_filters):
-        filter = mu.StatsDiffFilter(data_for_filters)
+    def test_stats_diff_filter(self, all_columns_df):
+        filter = mu.StatsDiffFilter(all_columns_df)
         data = filter.get_data()
 
         cols = ['p1_stats_1stin_avg_diff',
@@ -238,7 +272,7 @@ class TestColumnFilters(object):
 
         self.compare_columns(data.columns, cols)
 
-    def test_stats_raw_filter(self, data_for_filters):
+    def test_stats_raw_filter(self, all_columns_df):
 
         target = ['p1_stats_1stin_avg',
                              'p1_stats_1stwon_avg',
@@ -259,23 +293,23 @@ class TestColumnFilters(object):
                              'p2_stats_svgms_avg',
                              'p2_stats_svpt_avg']
 
-        filter = mu.StatsRawFilter(data_for_filters)
+        filter = mu.StatsRawFilter(all_columns_df)
         cols = filter.get_columns()
 
         self.compare_columns(cols, target)
 
-    def test_stats5_diff_filter(self, data_for_filters):
+    def test_stats5_diff_filter(self, all_columns_df):
 
-        filter = mu.Stats5DiffFilter(data_for_filters)
+        filter = mu.Stats5DiffFilter(all_columns_df)
         cols = filter.get_columns()
 
         assert len([col for col in cols if re.search("percentage", col)]) == 0, "columns should not contain percentage"
         assert len([col for col in cols if re.search("stats5", col)]) == len(cols), \
             "all columns should have stats5 in the name"
 
-    def test_history5_diff_filter(self, data_for_filters):
+    def test_history5_diff_filter(self, all_columns_df):
 
-        filter = mu.History5PercentageDiffFilter(data_for_filters)
+        filter = mu.History5PercentageDiffFilter(all_columns_df)
         cols = filter.get_columns()
 
         assert len(cols) == 3, " there should be 3 columns"
@@ -283,9 +317,9 @@ class TestColumnFilters(object):
         assert len([col for col in cols if re.search("history5", col)]) == len(cols), \
             "all columns should have stats5 in the name"
 
-    def test_matchup5_diff_filter(self, data_for_filters):
+    def test_matchup5_diff_filter(self, all_columns_df):
 
-        filter = mu.Matchup5PercentageDiffFilter(data_for_filters)
+        filter = mu.Matchup5PercentageDiffFilter(all_columns_df)
         cols = filter.get_columns()
 
         assert len(cols) == 3, " there should be 3 columns"
@@ -294,20 +328,20 @@ class TestColumnFilters(object):
             "all columns should have stats5 in the name"
 
 
-    def test_default_column_filter(self, data_for_filters):
-        default_filter = mu.DefaultColumnFilter(data_for_filters)
+    def test_default_column_filter(self, all_columns_df):
+        default_filter = mu.DefaultColumnFilter(all_columns_df)
         default_cols = default_filter.get_columns()
 
-        diff_filter = mu.BaseDiffFilter(data_for_filters)
+        diff_filter = mu.BaseDiffFilter(all_columns_df)
         diff_cols = diff_filter.get_columns()
 
-        ohe_filter = mu.OHEFilter(data_for_filters)
+        ohe_filter = mu.OHEFilter(all_columns_df)
         ohe_cols = ohe_filter.get_columns()
 
         assert len(default_cols) == len(diff_cols) + len(ohe_cols), "default columns should be sum of diff and ohe"
 
-    def test_base_rank_diff_filter(self, data_for_filters):
-        filter = mu.BaseRankDiffFilter(data_for_filters)
+    def test_base_rank_diff_filter(self, all_columns_df):
+        filter = mu.BaseRankDiffFilter(all_columns_df)
         cols = filter.get_columns()
 
         assert len(cols) == 1, "should return only 1 column"

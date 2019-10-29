@@ -1,5 +1,6 @@
 import pandas as pd
 from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score
+from sklearn.model_selection import train_test_split
 import logging
 import pickle
 import seaborn as sns
@@ -8,7 +9,7 @@ import os
 import re
 import json
 from datetime import datetime
-import util.jupyter_util as ju
+import util.class_util as cu
 import dill
 import numpy as np
 
@@ -26,9 +27,9 @@ MAX_ITER = 100
 DIFF_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
                   "age_diff", "ht_diff", "seed_diff", "rank_diff",
                   ]
-RAW_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
-                   "p1_age", "p1_ht", "p1_rank", "p1_seed",
-                   "p2_age", "p2_ht", "p2_rank", "p2_seed",
+RAW_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year", "best_of",
+                   "p1", "p1_age", "p1_ht", "p1_rank", "p1_seed", "p1_hand_label",
+                   "p2", "p2_age", "p2_ht", "p2_rank", "p2_seed", "p2_hand_label",
                 ]
 
 STATS_RAW_COLUMNS = ['p1_stats_1stin_avg',
@@ -106,8 +107,15 @@ class IntervalBasedWeightCalculator(WeightCalculator):
 class ColumnFilter(object):
     """
     Base class for column filtering
+
+    The approach we are taking is each filter will get a subset of feature columns. You can then use pd.concat to put together
+    all the columns you need to create the dataset
     """
     def __init__(self, data: pd.DataFrame):
+        """
+        default constructor
+        :param data: feature DF that you want to filter
+        """
         self.data = data
 
     def get_columns(self):
@@ -138,6 +146,13 @@ class BaseRawFilter(ColumnFilter):
     """
     def get_columns(self):
         return RAW_COLUMNS
+
+class BaseRawNoPlayerFilter(ColumnFilter):
+    """
+    Filters out base columns for our data
+    """
+    def get_columns(self):
+        return [ col for col in RAW_COLUMNS if not re.search(r"(p1|p2)", col) ]
 
 
 class BaseDiffFilter(ColumnFilter):
@@ -236,9 +251,51 @@ class ModelWrapper(object):
     CONFUSION_MATRIX = "confusion_matrix"
     CLASSIFICATION_REPORT = "classification_report"
     FIT_TIME_MIN = "fit_time_min"
-    DATA_FILTER_FILE = "data_filter_file"
+    COLUMN_FILTERS = "column_filters"
     PREDICT_TIME_MIN = "predict_time_min"
     TOTAL_TIME_MIN = "total_time_min"
+
+    @staticmethod
+    def get_data(filename: str, label_col: str, start_year: int, end_year: int, random_state=1,
+                 column_filters=None) -> (pd.DataFrame, pd.DataFrame):
+        """
+        Gets the data file, filters out unwanted entries and then split into training and test sets
+
+        :param filename: filename to load
+        :param label_col: name of label column
+        :param start_year: filter out entries before this year
+        :param end_year: filter out entries after this year
+        :param random_state: seeds the random state for splitting train and test data
+        :param data_filters: function to filter out feature columns
+        :return: X_train, X_test, y_train, y_test
+        """
+        if column_filters is not None:
+            assert isinstance(column_filters, list), "data_filter must be a list if specified"
+            assert len(column_filters) > 0, "data_filter length must be > 0"
+
+        log.info(f"loading {filename}")
+
+        features = pd.read_csv(filename)
+        features = features[(features.tourney_year >= start_year) & (features.tourney_year <= end_year)]
+        labels = features[label_col].copy()
+        features = features.drop([label_col], axis=1)
+
+        # filter out data if specified
+        if column_filters is not None:
+            log.info(f'Shape before filtering: {features.shape}')
+            filter_instances = []
+            for filter in column_filters:
+                log.info(f'Adding filter: {filter}')
+                klass = cu.get_class(filter)
+                instance = klass(features)
+                filter_instances.append(instance)
+            features = pd.concat([instance.get_data() for instance in filter_instances], axis=1)
+            log.debug(f'columns: {features.columns}')
+            log.info(f'Shape after filtering: {features.shape}')
+
+        log.info(f'Final Features shape: {features.shape}')
+        log.debug(f'Final Features columns: {features.columns}')
+        return train_test_split(features, labels, random_state=random_state)
 
     @classmethod
     def get_model_wrapper_from_report(cls, data: pd.DataFrame, load_data: bool = False):
@@ -263,7 +320,7 @@ class ModelWrapper(object):
         :return: ModelWrapper object
         """
         log.info(type(data))
-        log.info(data)
+        log.debug(data)
         assert len(data) == 1, f"data must of length 1 - got {len(data)}"
 
         # get these from the file name
@@ -279,10 +336,10 @@ class ModelWrapper(object):
         model_file = data[ModelWrapper.MODEL_FILE].values[0]
         predict_time_min = int(data[ModelWrapper.PREDICT_TIME_MIN].values[0])
         fit_time_min = int(data[ModelWrapper.FIT_TIME_MIN].values[0])
-        if data[ModelWrapper.DATA_FILTER_FILE].isna().values[0]:
-            data_filter_file = None
+        if ModelWrapper.COLUMN_FILTERS not in data.columns or data[ModelWrapper.COLUMN_FILTERS].isna().values[0]:
+            column_filters = None
         else:
-            data_filter_file = data[ModelWrapper.DATA_FILTER_FILE].values[0]
+            column_filters = data[ModelWrapper.COLUMN_FILTERS].values[0]
 
 
         log.debug(f'model_file {model_file}')
@@ -296,9 +353,13 @@ class ModelWrapper(object):
             model_bin = pickle.load(file)
         mw = ModelWrapper(model_bin, description, data_file, start_year, end_year, model_name = model_name)
 
-        # load confusion matrix and classification_report
+        # load json fields
         mw.cm = json.loads(confusion_matrix_str)
         mw.cr = json.loads(classification_report_str)
+        if column_filters is not None:
+            mw.column_filters = json.loads(column_filters)
+        else:
+            mw.column_filters = None
 
         # set other variables
         mw.accuracy = accuracy
@@ -306,16 +367,9 @@ class ModelWrapper(object):
         mw.fit_time_min = fit_time_min
         mw.predict_time_min = predict_time_min
 
-        # load data filter
-        mw.data_filter_file = data_filter_file
-        log.info(f'data_filter_file {data_filter_file}')
-        log.info(f'data_filter_file type {type(data_filter_file)}')
-        if data_filter_file:
-            with open(data_filter_file, 'rb') as file:
-                mw.data_filter = dill.load(file)
 
         if load_data:
-            mw.X_train, mw.X_test, mw.y_train, mw.y_test = ju.get_data(data_file, LABEL_COL, start_year, end_year, data_filter=mw.data_filter)
+            mw.X_train, mw.X_test, mw.y_train, mw.y_test = ModelWrapper.get_data(data_file, LABEL_COL, start_year, end_year, column_filters=mw.column_filters)
 
         return mw
 
@@ -350,7 +404,7 @@ class ModelWrapper(object):
 
     def __init__(self, model, description, data_file, start_year, end_year,
                  X_train = None, y_train = None, X_test = None, y_test = None, model_name = None,
-                model_file_format = None, model_dir = None, report_file = None, data_filter = None):
+                 model_file_format = None, model_dir = None, report_file = None, column_filters = None):
         # TODO: remove x_test, y_test, etc
         """
         Creates a model wrapper object
@@ -363,6 +417,7 @@ class ModelWrapper(object):
         :param model_file_format: file format used to pick the binary model
         :param model_dir: directory to save model file
         :param report_file: directory + filename of where to write the report
+        :param column_filters: list of filter classnames to be loaded -ie,
         """
         self.description = description
         self.data_file = data_file
@@ -375,7 +430,7 @@ class ModelWrapper(object):
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
-        self.data_filter = data_filter
+        self.column_filters = column_filters
 
         if not model_dir:
             self.model_dir = ModelWrapper.MODEL_DIR
@@ -402,10 +457,6 @@ class ModelWrapper(object):
         else:
             self.model_name = type(self.model).__name__
         self.model_file = f'{ModelWrapper.MODEL_DIR}/{self.model_name.lower()}-{self.model_file_format}'
-        if data_filter:
-            self.data_filter_file = f'{ModelWrapper.MODEL_DIR}/{self.model_name.lower()}-{self.model_file_format}-data_filter.pkl'
-        else:
-            self.data_filter_file = None
 
 
     def fit(self, X_train = None, y_train = None, sample_weights = None) -> pd.DataFrame:
@@ -414,7 +465,10 @@ class ModelWrapper(object):
             self.X_train = X_train
             self.y_train = y_train
         self.sample_weights = sample_weights
-        self.model = self.model.fit(self.X_train, self.y_train, self.sample_weights)
+        if self.sample_weights is not None:
+            self.model = self.model.fit(self.X_train, self.y_train, self.sample_weights)
+        else:
+            self.model = self.model.fit(self.X_train, self.y_train)
         end_time = datetime.now()
         self.fit_time_min = divmod((end_time - start_time).total_seconds(), 60)[0]
         return self
@@ -453,8 +507,6 @@ class ModelWrapper(object):
     def save(self):
         log.info(f'Saving model file: {self.model_file}')
         pickle.dump(self.model, open(self.model_file, 'wb'))
-        if self.data_filter:
-            dill.dump(self.data_filter, open(self.data_filter_file, 'wb'))
 
         d = {
             ModelWrapper.MODEL_NAME: [self.model_name, ],
@@ -470,9 +522,9 @@ class ModelWrapper(object):
             ModelWrapper.PREDICT_TIME_MIN: [self.predict_time_min, ],
             ModelWrapper.FIT_TIME_MIN: [self.fit_time_min, ],
             ModelWrapper.TOTAL_TIME_MIN: [self.fit_time_min + self.predict_time_min, ],
-            ModelWrapper.DATA_FILTER_FILE: [self.data_filter_file, ],
-
         }
+        if self.column_filters is not None:
+            d[ModelWrapper.COLUMN_FILTERS] =  [json.dumps(self.column_filters), ]
 
         if os.path.exists(self.report_file):
             log.info(f'Reading report: {self.report_file}')

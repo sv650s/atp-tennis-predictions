@@ -8,19 +8,21 @@
 #
 
 usage() {
-  echo "`$0`: [-d run all notebooks in debug] [-n <notebook> run specific notebook]"
+  echo "`$0`: [-d run all notebooks in debug] [-n <notebook> run specific notebook] [-c when running in debug mode, us this to delete temp notebooks]"
 }
 
 DEBUG="false"
+CLEAN="false"
 ALL="true"
 notebooks=""
 DEBUG_MSG=""
 
-while getopts "hdn:" arg; do
+while getopts "chdn:" arg; do
   case $arg in
     h) echo "usage" && exit 0 ;;
     n) ALL="false" && notebooks=$OPTARG ;;
     d) DEBUG="true" ;;
+    c) CLEAN="true" ;;
     ?) usage && exit 1 ;;
   esac
 done
@@ -30,7 +32,7 @@ if [ $ALL == "false" -a "x$notebooks" == "x" ]; then
   usage
   exit 1
 elif [ $ALL == "true" ]; then
-  notebooks=`ls [4]*.ipynb | grep -v nbconvert`
+  notebooks=`ls 4.0*.ipynb | grep -v nbconvert`
 fi
 
 log_file="$0.log"
@@ -60,6 +62,11 @@ for notebook in $notebooks; do
     fi
     echo "`date` Finished running $notebook" | tee -a $log_file
     echo "" | tee -a $log_file
+
+    if [ $CLEAN == "true" ]; then
+      echo "cleaning up temp notebook"
+      rm `echo $notebook | awk -F\. '{print $1}'`.nbconvert.ipynb
+    fi
 done
 
 unset IPYNB_DEBUG
