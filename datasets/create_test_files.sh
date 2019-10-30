@@ -3,6 +3,8 @@
 # some of the notebooks have test mode so I can test them to make sure they run
 # use this script to create test
 #
+# when running this --inplace is passed to nbconvert so that we do not overwrite existing notebook outputs
+#
 #
 
 in_file="atp_matches_1985-2019_preprocessed.csv"
@@ -20,14 +22,21 @@ head -1 $in_file > $out_file
 # take the last lines from the file
 tail -${lines} $in_file >> $out_file
 
+notebooks="3.0.0-classification_feature_engineering.ipynb 3.1.0-classification_feature_engineering-history-matchup-stats.ipynb 3.2.0-regression_feature_engineering.ipynb"
 
 # run jupyter notebooks to create other test files
 (
     export IPYNB_DEBUG="True"
     cd ../notebooks
-    jupyter nbconvert --to notebook --allow-errors --ExecutePreprocessor.timeout=1200 --execute 3.0.0-classification_feature_engineering.ipynb
 
-    jupyter nbconvert --to notebook --allow-errors --ExecutePreprocessor.timeout=1200 --execute 3.1.0-classification_feature_engineering-history-matchup-stats.ipynb
+    for notebook in $notebooks; do
+      if [ -f $notebook ]; then
+        jupyter nbconvert --to notebook --allow-errors --ExecutePreprocessor.timeout=1200 --execute $notebook
+      else
+        echo "$notebook not found"
+        exit 1
+      fi
+    done
 
 #    rm *.nbconvert.ipynb
 
