@@ -2,7 +2,7 @@ import pytest
 import logging
 import util.model_util as mu
 from util.model_util import ModelWrapper
-from util.model_util import BaseDiffFilter, BaseRawFilter, OHEFilter, RAW_COLUMNS, DIFF_COLUMNS
+from util.model_util import BaseDiffFilter, BaseOrdinalFilter, OHEFilter, ORDINAL_COLUMNS, DIFF_COLUMNS
 from sklearn.tree import DecisionTreeClassifier
 import os
 import re
@@ -227,13 +227,18 @@ class TestColumnFilters(object):
         diff_col = [col for col in right if col not in left]
         assert len(diff_col) == 0, "there are missing columns in the generated list"
 
-    def test_base_raw_filter(self, all_columns_df):
-        filter = BaseRawFilter(all_columns_df)
+    def test_base_ordinal_filter(self, all_columns_df):
+        filter = BaseOrdinalFilter(all_columns_df)
         data = filter.get_data()
-        diff_col = [col for col in data.columns if col not in RAW_COLUMNS ]
+        diff_col = [col for col in data.columns if col not in ORDINAL_COLUMNS]
         assert len(diff_col) == 0, "there are extra columns in the generated list"
-        diff_col = [col for col in RAW_COLUMNS if col not in data.columns]
+        diff_col = [col for col in ORDINAL_COLUMNS if col not in data.columns]
         assert len(diff_col) == 0, "there are missing columns in the generated list"
+
+    def test_reduced_oridinal_filter(self, all_columns_df):
+        base_filter = BaseOrdinalFilter(all_columns_df)
+        reduced_filter = mu.ReducedOrdinalFilter(all_columns_df)
+        assert len(reduced_filter.get_columns()) == len(base_filter.get_columns()) - 3, "we should have 3 less columns than before"
 
     def test_base_diff_filter(self, all_columns_df):
         filter = BaseDiffFilter(all_columns_df)

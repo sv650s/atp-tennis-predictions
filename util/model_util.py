@@ -24,13 +24,20 @@ N_JOBS = 4
 MAX_ITER = 100
 
 
-DIFF_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
-                  "age_diff", "ht_diff", "seed_diff", "rank_diff",
+# DIFF_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
+#                   "age_diff", "ht_diff", "rank_diff",
+#                   ]
+DIFF_COLUMNS = ["tourney_level_label", "tourney_year",
+                  "age_diff", "ht_diff", "rank_diff",
                   ]
-RAW_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year", "best_of",
-                   "p1", "p1_age", "p1_ht", "p1_rank", "p1_seed", "p1_hand_label",
-                   "p2", "p2_age", "p2_ht", "p2_rank", "p2_seed", "p2_hand_label",
-                ]
+# RAW_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year", "best_of",
+#                    "p1", "p1_age", "p1_ht", "p1_rank", "p1_seed", "p1_hand_label",
+#                    "p2", "p2_age", "p2_ht", "p2_rank", "p2_seed", "p2_hand_label",
+#                 ]
+ORDINAL_COLUMNS = ["draw_size", "round_label", "tourney_level_label", "tourney_month", "tourney_year",
+               "p1_age", "p1_ht", "p1_rank",
+               "p2_age", "p2_ht", "p2_rank",
+                   ]
 
 STATS_RAW_COLUMNS = ['p1_stats_1stin_avg',
  'p1_stats_1stwon_avg',
@@ -119,6 +126,11 @@ class ColumnFilter(object):
         self.data = data
 
     def get_columns(self):
+        """
+        When extending this class. Implement this function.
+
+        :return: list of column names that the filter should grab from the dataset
+        """
         raise Exception("Not yet implemented")
 
     def get_data(self):
@@ -139,20 +151,52 @@ class OHEFilter(ColumnFilter):
                 or re.search(r'surface_[\w]+', col)
                 ]
 
+class ReducedOHEFilter(ColumnFilter):
+    """
+    gets all one hot encoded columns
+    """
+    def get_columns(self):
+        return [col for col in self.data.columns if
+                re.search(r'(p1|p2)_[\d]+', col)
+                or re.search(r'(p1|p2)_ioc_.+', col)
+                or re.search(r'tourney_id_.+', col)
+                or re.search(r'(p1|p2)_hand_[\w]{1}', col)
+                or re.search(r'best_of_', col)
+                or re.search(r'surface_[\w]+', col)
+                ]
 
-class BaseRawFilter(ColumnFilter):
+class BaselineFilter(ColumnFilter):
+    """
+    Get baseline feature which is rank_diff
+    """
+    def get_columns(self):
+        return ["rank_diff"]
+
+class BaseOrdinalFilter(ColumnFilter):
     """
     Filters out base columns for our data
     """
     def get_columns(self):
-        return RAW_COLUMNS
+        return ORDINAL_COLUMNS
+
+class ReducedOrdinalFilter(BaseOrdinalFilter):
+    """
+    Filter that returns the same columns without our useless features
+    """
+    def get_columns(self):
+        # make a copy so we don't change the original list
+        columns = super().get_columns().copy()
+        columns.remove("draw_size")
+        columns.remove("round_label")
+        columns.remove("tourney_month")
+        return columns
 
 class BaseRawNoPlayerFilter(ColumnFilter):
     """
     Filters out base columns for our data
     """
     def get_columns(self):
-        return [ col for col in RAW_COLUMNS if not re.search(r"(p1|p2)", col) ]
+        return [col for col in ORDINAL_COLUMNS if not re.search(r"(p1|p2)", col)]
 
 
 class BaseDiffFilter(ColumnFilter):
@@ -209,6 +253,14 @@ class Stats5DiffFilter(ColumnFilter):
         return [col for col in self.data.columns if re.search("stats5.*diff", col) and not re.search("percentage", col)]
 
 
+class Stats5RawFilter(ColumnFilter):
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"(p1|p2).+stats5", col) and not re.search(r"(percentage|diff)", col)]
+
+class Stats5PercentageFilter(ColumnFilter):
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"(p1|p2).+stats5.+percent", col) and not re.search("diff", col)]
+
 class History5PercentageDiffFilter(ColumnFilter):
     """
     get history percentage_diff columns for last 5 matches
@@ -223,6 +275,18 @@ class History5DiffFilter(ColumnFilter):
     def get_columns(self):
         return [col for col in self.data.columns if re.search(r"history5.+diff", col)]
 
+class History5WinPercentageFilter(ColumnFilter):
+    def get_columns(self):
+        return ['p1_history5_win_percentage', 'p2_history5_win_percentage']
+
+class History10WinPercentageFilter(ColumnFilter):
+    def get_columns(self):
+        return ['p1_history10_win_percentage', 'p2_history10_win_percentage']
+
+class History5WinLossFilter(ColumnFilter):
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"(p1|p2).+history5.+(loss|win)", col) and not re.search(r'(percent|diff)', col)]
+
 
 class Matchup5PercentageDiffFilter(ColumnFilter):
     """
@@ -231,6 +295,18 @@ class Matchup5PercentageDiffFilter(ColumnFilter):
     def get_columns(self):
         return [col for col in self.data.columns if re.search(r"matchup5.+percent.+diff", col)]
 
+
+class Matchup5WinPercentageFilter(ColumnFilter):
+    def get_columns(self):
+        return ['p1_matchup5_win_percentage', 'p2_matchup5_win_percentage']
+
+class Matchup10WinPercentageFilter(ColumnFilter):
+    def get_columns(self):
+        return ['p1_matchup10_win_percentage', 'p2_matchup10_win_percentage']
+
+class Matchup5WinLossFilter(ColumnFilter):
+    def get_columns(self):
+        return [col for col in self.data.columns if re.search(r"p1.+matchup5.+(loss|win)", col) and not re.search(r'(percent|diff)', col)]
 
 
 class ModelWrapper(object):
@@ -256,12 +332,12 @@ class ModelWrapper(object):
     TOTAL_TIME_MIN = "total_time_min"
 
     @staticmethod
-    def get_data(filename: str, label_col: str, start_year: int, end_year: int, random_state=1,
-                 column_filters=None) -> (pd.DataFrame, pd.DataFrame):
+    def get_data(file, label_col: str, start_year: int, end_year: int, random_state=1,
+                 column_filters=None, split_train_test = True) -> (pd.DataFrame, pd.DataFrame):
         """
         Gets the data file, filters out unwanted entries and then split into training and test sets
 
-        :param filename: filename to load
+        :param file: file to load or dataframe with data already pre-loaded
         :param label_col: name of label column
         :param start_year: filter out entries before this year
         :param end_year: filter out entries after this year
@@ -272,30 +348,57 @@ class ModelWrapper(object):
         if column_filters is not None:
             assert isinstance(column_filters, list), "data_filter must be a list if specified"
             assert len(column_filters) > 0, "data_filter length must be > 0"
+            filter_klasses = []
+            # try to create the filter classes first so we don't have to wait for file to load before
+            # this it errors out
+            for filter in column_filters:
+                log.info(f'Adding filter: {filter}')
+                klass = cu.get_class(filter)
+                assert klass is not None, f"cannot create filter class {filter}"
+                filter_klasses.append(klass)
 
-        log.info(f"loading {filename}")
 
-        features = pd.read_csv(filename)
+        if isinstance(file, str):
+            log.info(f"loading {file}")
+            features = pd.read_csv(file)
+        elif isinstance(file, pd.DataFrame):
+            log.info(f"Copying features dataframe")
+            features = file.copy()
+
         features = features[(features.tourney_year >= start_year) & (features.tourney_year <= end_year)]
         labels = features[label_col].copy()
         features = features.drop([label_col], axis=1)
+
 
         # filter out data if specified
         if column_filters is not None:
             log.info(f'Shape before filtering: {features.shape}')
             filter_instances = []
-            for filter in column_filters:
-                log.info(f'Adding filter: {filter}')
-                klass = cu.get_class(filter)
+            for klass in filter_klasses:
                 instance = klass(features)
                 filter_instances.append(instance)
+
             features = pd.concat([instance.get_data() for instance in filter_instances], axis=1)
             log.debug(f'columns: {features.columns}')
             log.info(f'Shape after filtering: {features.shape}')
 
         log.info(f'Final Features shape: {features.shape}')
         log.debug(f'Final Features columns: {features.columns}')
-        return train_test_split(features, labels, random_state=random_state)
+        if split_train_test:
+            return train_test_split(features, labels, random_state=random_state)
+        else:
+            return features, labels
+
+    @classmethod
+    def load_model_wrapper(cls, report: pd.DataFrame, model_name: str, description: str,
+                           start_year: int, end_year: int, load_data: bool = False):
+        current_report = report[(report.model_name == model_name) &
+                                (report.description == description) &
+                                (report.start_year == start_year) &
+                                (report.end_year == end_year)]
+        mw = ModelWrapper.get_model_wrapper_from_report(current_report, load_data)
+        return mw
+
 
     @classmethod
     def get_model_wrapper_from_report(cls, data: pd.DataFrame, load_data: bool = False):
@@ -504,9 +607,17 @@ class ModelWrapper(object):
 
         sns.heatmap(cm, annot=True, vmin=0, vmax=len(self.y_predict))
 
-    def save(self):
-        log.info(f'Saving model file: {self.model_file}')
-        pickle.dump(self.model, open(self.model_file, 'wb'))
+    def save(self, save_model = True):
+        """
+        Saves the model as well as associated report information
+        :param save_model: for sklearn model use True. However, for TF models, use False as it has it's own function
+        :return:
+        """
+        # TODO: refactor this so it knows how to save TF models - currently just skipping
+        # when we do this, we should save the model as well as weights so we can load it in a non-GPU environment
+        if save_model:
+            log.info(f'Saving model file: {self.model_file}')
+            pickle.dump(self.model, open(self.model_file, 'wb'))
 
         d = {
             ModelWrapper.MODEL_NAME: [self.model_name, ],

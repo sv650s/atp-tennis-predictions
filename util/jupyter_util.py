@@ -49,7 +49,7 @@ def plot_2d(X_test: pd.DataFrame, y_predict):
 
 
 
-def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_year: int, feature_filter = None, ohe = True) -> (pd.DataFrame, pd.DataFrame):
+def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_year: int, column_filters = None, ohe = True) -> (pd.DataFrame, pd.DataFrame):
     """
     Gets samples for a particular tournament for a particular year.
 
@@ -59,25 +59,16 @@ def get_tourney_data(filename: str, label_col: str, tourney_id: int, tourney_yea
     :param label_col: name of label column
     :param tourney_id: name of tournament
     :param tourney_year: year of tournament
-    :param feature_filter: function to filter out features
+    :param column_filters: list of module.filter class names to use to filter feature columns
     :param ohe: indicates whether the features are one hot encoded or not. if it is the function will concat the id with tourney_id to figure out how to get the info. Default is True
     :return: features, labels
     """
-    features = pd.read_csv(filename)
-    features = features[features.tourney_year == tourney_year]
+    features, labels = mu.ModelWrapper.get_data(filename, label_col, tourney_year, tourney_year, column_filters = column_filters, split_train_test=False)
     if ohe:
         features = features[features[f'tourney_id_{tourney_id}'] == 1]
     else:
         features = features[features.tourney_id == tourney_id]
     log.info(features.shape)
-
-    # make a copy of labels before we drop them
-    labels = features[label_col]
-    features = features.drop([label_col], axis=1)
-
-    # additional feature filters
-    if feature_filter:
-        features = feature_filter(features)
 
     return features, labels
 

@@ -20,7 +20,7 @@ DEBUG_MSG=""
 while getopts "chdn:" arg; do
   case $arg in
     h) echo "usage" && exit 0 ;;
-    n) ALL="false" && notebooks=$OPTARG ;;
+    n) ALL="false" && notebooks=`ls $OPTARG` ;;
     d) DEBUG="true" ;;
     c) CLEAN="true" ;;
     ?) usage && exit 1 ;;
