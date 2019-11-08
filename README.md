@@ -11,7 +11,7 @@ As a final test for this project, I will use the best ML model to make predictio
 
 * Decision Tree seems to work the best when doing classification (win/loss)
 * Adding match history data for players as well as matchup history leading up to a match did slightly improve performance but only marginally
-* For our final prediction (Sydney Open 2019), we accurately predicted 54 out of 55 matches correctly, giving us a 85% accuracy score
+* For our final prediction (Sydney Open 2019), we accurately predicted 46 out of 55 matches correctly, giving us a 85% accuracy score
 
 # Requirements
 
